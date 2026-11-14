@@ -2,6 +2,8 @@ import React from 'react'
 
 const LINKS = [
   { label: 'Harmonization', href: '#harmonization' },
+  { label: 'Burning calendar', href: '#calendar' },
+  { label: 'Vietnam map', href: '#data-map' },
   { label: 'Seasonal Trends', href: '#seasonal' },
   { label: 'Methodology', href: '#methodology' },
 ]

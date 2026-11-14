@@ -4,6 +4,8 @@ import { SiteNav } from './components/SiteNav'
 import { Hero } from './components/Hero'
 import { Methodology } from './components/Methodology'
 import { Harmonization } from './components/Harmonization'
+import { HarmonizedMap } from './components/HarmonizedMap'
+import { BurningCalendar } from './components/BurningCalendar'
 import { SeasonalTrends } from './components/SeasonalTrends'
 import { ApiAccess } from './components/ApiAccess'
 import { ThermalFooter } from './components/ThermalFooter'
@@ -33,6 +35,8 @@ export default function Home(props: Props) {
         <Hero line1={titleLine1} line2={titleLine2} onExplore={onExploreDashboard} />
         <Methodology />
         <Harmonization initialMode={chartMode as 'raw' | 'harmonized' | 'compare'} />
+        <BurningCalendar />
+        <HarmonizedMap />
         <SeasonalTrends />
         <ApiAccess initialState={apiFormState as 'idle' | 'submitted'} />
       </main>
