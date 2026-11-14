@@ -1,5 +1,12 @@
 /* @import url() FONT IMPORTS MUST ALWAYS BE AT THE VERY TOP OF THIS FILE, ABOVE THE TAILWIND IMPORT — DO NOT DELETE THIS COMMENT */
-@import url('https://fonts.googleapis.com/css2?family=Inter+Tight:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+/* Self-hosted (@fontsource, bundled by Vite): no third-party font request at demo time.
+   Each weight file covers latin, latin-ext and vietnamese via unicode-range. */
+@import '@fontsource/inter-tight/400.css';
+@import '@fontsource/inter-tight/500.css';
+@import '@fontsource/inter-tight/600.css';
+@import '@fontsource/inter-tight/700.css';
+@import '@fontsource/jetbrains-mono/400.css';
+@import '@fontsource/jetbrains-mono/500.css';
 
 /* CRITICAL: THE FOLLOWING TAILWIND IMPORT MUST NEVER BE DELETED — DO NOT DELETE THIS COMMENT */
 @import 'tailwindcss';

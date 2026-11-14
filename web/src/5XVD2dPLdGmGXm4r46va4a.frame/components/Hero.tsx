@@ -2,32 +2,39 @@ import React from 'react'
 
 import { DataPending, DataValue, FileStatus } from '../../shared/components/DataStatus'
 
-type Props = { line1: string; line2: string; onExplore?: () => void }
+type Props = { title: string; subtitle: string; onExplore?: () => void }
 
-export function Hero({ line1, line2, onExplore }: Props) {
+/**
+ * Normal flow on a 12-column grid (no absolute positioning), so the title can never sit on top
+ * of the copy or the visual at any width.
+ */
+export function Hero({ title, subtitle, onExplore }: Props) {
   return (
-    <section id="top" className="relative mx-auto max-w-[1280px] px-5 pt-12 md:px-10 md:pt-20">
-      <div className="relative lg:min-h-[760px]">
-        <h1 className="relative z-10 max-w-[11ch] text-[clamp(3rem,10vw,8.75rem)] font-semibold leading-[0.88] tracking-[-0.045em] text-bone lg:max-w-none">
-          <span className="block">{line1}</span>
-          <span className="block">{line2}</span>
-        </h1>
+    <section id="top" className="mx-auto max-w-[1280px] px-5 pt-12 md:px-10 md:pt-20">
+      <h1 className="text-[clamp(3.5rem,16vw,10rem)] font-semibold leading-[0.85] tracking-[-0.05em] text-bone">{title}</h1>
 
-        <div className="relative z-10 mt-8 max-w-sm lg:absolute lg:left-0 lg:top-[330px] lg:mt-0">
-          <p className="text-base leading-relaxed text-bone-dim">
-            Satellite fire detections from MODIS and VIIRS, put on one scale so two decades of burning in
-            Mekong Delta wetlands can be read as a single record.
+      <div className="mt-10 grid gap-10 lg:mt-14 lg:grid-cols-12 lg:gap-8">
+        <div className="flex flex-col lg:col-span-4">
+          <p className="max-w-[22ch] text-[clamp(1.375rem,2.2vw,1.75rem)] font-medium leading-tight tracking-[-0.015em] text-bone">
+            {subtitle}
           </p>
-          <div className="mt-6 flex flex-wrap items-center gap-3">
+          <p className="mt-5 max-w-[44ch] text-base leading-relaxed text-bone-dim">
+            MODIS and VIIRS see Vietnam's fires at different resolutions, so their counts cannot be joined
+            directly. FireForest expresses both as fire-active 10 km cells per day and asks, for every VIIRS fire,
+            whether MODIS would have seen it. The result is one record from{' '}
+            <DataValue file="national.json" pick={(d) => d.meta.first_month} /> to{' '}
+            <DataValue file="national.json" pick={(d) => d.meta.last_month} />.
+          </p>
+          <div className="mt-8 flex flex-wrap items-center gap-3">
             <button
               type="button"
               onClick={onExplore}
-              className="group inline-flex items-center gap-2 whitespace-nowrap bg-ember px-5 py-3 text-sm font-semibold text-ink transition-colors duration-150 hover:bg-bone"
+              className="group inline-flex items-center gap-2 whitespace-nowrap bg-ember px-5 py-3 text-sm font-semibold text-ink transition-colors duration-150 hover:bg-bone focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ember"
             >
-              Explore Dashboard
+              Open Explorer
               <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="h-4 w-4 transition-transform duration-150 ease-out group-hover:translate-x-0.5"><path d="M5 12h14m-7-7 7 7-7 7" strokeLinecap="round" strokeLinejoin="round" /></svg>
             </button>
-            <a href="#methodology" className="whitespace-nowrap px-2 py-3 text-sm text-bone-dim underline-offset-4 hover:text-bone hover:underline">
+            <a href="#method" className="whitespace-nowrap px-2 py-3 text-sm text-bone-dim underline-offset-4 hover:text-bone hover:underline">
               How it works
             </a>
           </div>
@@ -36,7 +43,7 @@ export function Hero({ line1, line2, onExplore }: Props) {
         <DataPending
           title="Vietnam Fire Grid"
           note="Real 10 km cells as instanced columns, height and colour = March cell-days, one frame per year. Built in stage 4 from these files."
-          className="mt-10 lg:absolute lg:bottom-0 lg:right-0 lg:mt-0 lg:h-[500px] lg:w-[66%]"
+          className="min-h-[300px] lg:col-span-8 lg:h-[480px]"
         >
           <FileStatus
             file="grid_cells.json"
@@ -52,13 +59,13 @@ export function Hero({ line1, line2, onExplore }: Props) {
       <dl className="mt-12 grid grid-cols-2 border-y border-line md:grid-cols-4">
         {(
           [
-            ['Window', <DataValue file="national.json" pick={(d) => `${d.meta.first_month} – ${d.meta.last_month}`} />],
+            ['Record', <DataValue file="national.json" pick={(d) => `${d.meta.first_month} – ${d.meta.last_month}`} />],
             ['Provinces', <DataValue file="provinces.json" pick={(d) => d.meta.n_provinces} />],
             ['10 km grid cells', <DataValue file="grid_cells.json" pick={(d) => d.meta.n_cells.toLocaleString('en-US')} />],
             ['check_outputs.py', <DataValue file="checks.json" pick={(d) => `${d.n_pass}/${d.n_checks} PASS`} />],
           ] as const
         ).map(([k, v], i) => (
-          <div key={k} className={`px-0 py-5 md:px-6 ${i % 2 ? 'pl-5' : ''} ${i > 0 ? 'md:border-l md:border-line' : 'md:pl-0'}`}>
+          <div key={k} className={`py-5 md:px-6 ${i % 2 ? 'pl-5' : ''} ${i > 0 ? 'md:border-l md:border-line' : 'md:pl-0'}`}>
             <dt className="font-mono text-[11px] text-muted">{k}</dt>
             <dd className="mt-1 truncate text-sm tabular-nums text-bone">{v}</dd>
           </div>

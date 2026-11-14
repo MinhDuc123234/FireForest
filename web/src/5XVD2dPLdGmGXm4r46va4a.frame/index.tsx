@@ -7,32 +7,35 @@ import { Harmonization } from './components/Harmonization'
 import { HarmonizedMap } from './components/HarmonizedMap'
 import { BurningCalendar } from './components/BurningCalendar'
 import { SeasonalTrends } from './components/SeasonalTrends'
+import { TrustLimits } from './components/TrustLimits'
 import { ThermalFooter } from './components/ThermalFooter'
 
 export const args = {
-  titleLine1: 'Earth Fire &',
-  titleLine2: 'Surface Intelligence',
+  title: 'FireForest',
+  subtitle: 'One comparable fire history, many local decisions.',
 }
 
 export const argTypes = {
-  titleLine1: { control: 'text' },
-  titleLine2: { control: 'text' },
+  title: { control: 'text' },
+  subtitle: { control: 'text' },
 }
 
 type Props = Partial<typeof args> & { onExploreDashboard?: () => void }
 
+/** Page order follows the nav: Story · Method · Seasons (seasonal, burning calendar, 10 km map) · Trust. */
 export default function Home(props: Props) {
-  const { titleLine1, titleLine2, onExploreDashboard } = { ...args, ...props }
+  const { title, subtitle, onExploreDashboard } = { ...args, ...props }
   return (
     <div className="bg-ink text-bone">
       <SiteNav onDashboard={onExploreDashboard} />
       <main>
-        <Hero line1={titleLine1} line2={titleLine2} onExplore={onExploreDashboard} />
-        <Methodology />
+        <Hero title={title} subtitle={subtitle} onExplore={onExploreDashboard} />
         <Harmonization />
+        <Methodology />
+        <SeasonalTrends />
         <BurningCalendar />
         <HarmonizedMap />
-        <SeasonalTrends />
+        <TrustLimits />
       </main>
       <ThermalFooter onDashboard={onExploreDashboard} />
     </div>

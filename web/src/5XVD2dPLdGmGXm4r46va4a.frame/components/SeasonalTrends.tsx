@@ -4,7 +4,7 @@ import { DataPending, FileStatus } from '../../shared/components/DataStatus'
 
 export function SeasonalTrends() {
   return (
-    <section id="seasonal" className="scroll-mt-20 border-t border-line">
+    <section id="seasons" className="scroll-mt-20 border-t border-line">
       <div className="mx-auto max-w-[1280px] px-5 py-24 md:px-10 md:py-32">
         <h2 className="text-[clamp(2.25rem,5vw,4.25rem)] font-semibold leading-[0.95] tracking-[-0.035em]">
           When Vietnam burns

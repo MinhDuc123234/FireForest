@@ -1,62 +1,128 @@
 import React from 'react'
 
-import { ScanFrame } from '../../shared/components/ScanFrame'
+import { DataValue } from '../../shared/components/DataStatus'
+import { UNIT, useData, type Method } from '../../shared/data/load'
 
-const STAGES = [
+/** CLI default of harmonize_fire_v2.py, read from method.json (parsed from the source). */
+function arg(m: Method, flag: string) {
+  return m.arguments.find((a) => a.flag === flag)?.default
+}
+function constant(m: Method, name: string) {
+  return m.constants[name]?.value
+}
+
+/** FIRMS VIIRS confidence codes (l / n / h). */
+const VIIRS_CONF: Record<string, string> = { l: 'low', n: 'nominal', h: 'high' }
+const viirsConf = (codes: string) => `${codes.split(',').map((c) => VIIRS_CONF[c.trim()] ?? c).join('/')} (${codes})`
+
+type Step = { title: string; fns: string[]; body: (m: Method) => React.ReactNode }
+
+const STEPS: Step[] = [
   {
-    n: '01',
-    title: 'Detect',
-    body: 'MODIS (1 km, since 2000) and VIIRS (375 m, since 2012) flag pixels hotter than their surroundings, four overpasses a day.',
-    src: 'https://cdn.magicpatterns.com/patterns/generated-images/a590496e-99df-458c-9257-3f36aa7b5be3.jpg',
-    alt: 'Aerial view at dusk of a melaleuca wetland with a smoke plume rising from a small fire',
+    title: 'Filter',
+    fns: ['prep'],
+    body: (m) => (
+      <>
+        Afternoon passes only · vegetation fires · VIIRS confidence {viirsConf(String(arg(m, '--viirs-conf')))} · MODIS confidence ≥{' '}
+        {String(arg(m, '--modis-min-conf'))} · detections assigned to the local date (UTC+{String(constant(m, 'TZ_HOURS'))}).
+      </>
+    ),
   },
   {
-    n: '02',
-    title: 'Locate',
-    body: 'Each detection carries a footprint, a brightness temperature and fire radiative power, so a hotspot can be pinned to a park zone.',
-    src: 'https://cdn.magicpatterns.com/patterns/generated-images/d9049219-8151-4a1d-b5be-5f97a195d5eb.jpg',
-    alt: 'Night thermal satellite view of a river delta with small bright hotspots',
+    title: 'Observation operator',
+    fns: ['swath_nodes', 'viirs_cellday'],
+    body: () => (
+      <>
+        The MODIS detection limit grows with pixel area; detection probability is logistic in fire radiative power
+        (Sofiev &amp; Kouznetsov, 2026). Integrated over the MODIS swath by deterministic quadrature, with no
+        Monte-Carlo noise.
+      </>
+    ),
   },
   {
-    n: '03',
-    title: 'Assess',
-    body: 'Detections are read against the burned surface they leave behind — peat, reed and melaleuca respond differently to the same fire.',
-    src: 'https://cdn.magicpatterns.com/patterns/generated-images/a9432691-2cb2-44f8-9dc4-1c37430937e5.jpg',
-    alt: 'A blackened burn scar cutting across green wetland reeds and channels',
+    title: 'Calibrate',
+    fns: ['calib'],
+    body: (m) => (
+      <>
+        Ratio R = Aqua observed ÷ predicted, per region × calendar month, fitted on {m.viirs_start?.value.slice(0, 4)}–
+        {String(arg(m, '--calib-end'))} and shrunk towards the national ratio.
+      </>
+    ),
   },
   {
-    n: '04',
-    title: 'Validate',
-    body: 'Ranger reports and handheld thermal checks close the loop, separating real fires from sun-glint and agricultural burns at the edge.',
-    src: 'https://cdn.magicpatterns.com/patterns/generated-images/9a219a35-bed0-42f0-87e2-fa7cb6f8f690.jpg',
-    alt: 'A researcher on a boardwalk at night aiming a thermal camera at a distant glow',
+    title: 'Uncertainty',
+    fns: ['boot_bands'],
+    body: (m) => {
+      const sc = arg(m, '--scenarios') as number[] | undefined
+      return (
+        <>
+          {String(arg(m, '--boot'))} year-block bootstrap draws, each with one of {sc?.length} operator scenarios (detection
+          limit × {sc?.map((s) => s.toFixed(1)).join(' / ')}), give the 95% band.
+        </>
+      )
+    },
+  },
+  {
+    title: 'Held-out test',
+    fns: ['metrics'],
+    body: (m) => {
+      const te = Number(arg(m, '--train-end'))
+      return (
+        <>
+          Fit {m.viirs_start?.value.slice(0, 4)}–{te}, then test from {te + 1} against Aqua observations the fit never saw.
+        </>
+      )
+    },
   },
 ]
 
 export function Methodology() {
+  const method = useData('method.json')
   return (
-    <section id="methodology" className="mx-auto max-w-[1280px] scroll-mt-20 px-5 py-24 md:px-10 md:py-32">
-      <div className="grid gap-6 lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)] lg:items-end">
-        <h2 className="text-[clamp(2.25rem,5vw,4.25rem)] font-semibold leading-[0.95] tracking-[-0.035em]">
-          From a hot pixel to a fire record
-        </h2>
-        <p className="max-w-xl text-bone-dim lg:justify-self-end">
-          Four stages turn raw satellite flags into something a park manager can act on. The dashboard exposes
-          the first three; the fourth is where local knowledge comes in.
-        </p>
-      </div>
+    <section id="method" className="scroll-mt-20 border-t border-line">
+      <div className="mx-auto max-w-[1280px] px-5 py-24 md:px-10 md:py-32">
+        <div className="grid gap-6 lg:grid-cols-12 lg:items-end lg:gap-8">
+          <h2 className="text-[clamp(2.25rem,5vw,4.25rem)] font-semibold leading-[0.95] tracking-[-0.035em] lg:col-span-7">
+            Would MODIS have seen it?
+          </h2>
+          <p className="max-w-[52ch] text-bone-dim lg:col-span-5">
+            For every VIIRS fire, the pipeline estimates the chance that Aqua MODIS, passing the same afternoon, would
+            have detected it. Five steps, each a function in <code className="font-mono text-[0.9em] text-bone">harmonize_fire_v2.py</code>.
+          </p>
+        </div>
 
-      <div className="mt-14 grid gap-x-6 gap-y-12 sm:grid-cols-2">
-        {STAGES.map((s) => (
-          <article key={s.n} className="grid grid-rows-[auto_auto_1fr]">
-            <ScanFrame tone="border-bone/70" size="sm" className="aspect-[4/3] overflow-hidden bg-ink-2">
-              <img src={s.src} alt={s.alt} loading="lazy" className="h-full w-full object-cover opacity-90" />
-              <span className="absolute left-3 top-3 font-mono text-[11px] text-bone">{s.n}</span>
-            </ScanFrame>
-            <h3 className="mt-5 text-2xl font-semibold tracking-tight">{s.title}</h3>
-            <p className="mt-2 max-w-md text-sm leading-relaxed text-bone-dim">{s.body}</p>
-          </article>
-        ))}
+        <ol className="mt-14 grid gap-px border border-line bg-line sm:grid-cols-2 lg:grid-cols-3">
+          {STEPS.map((s, i) => (
+            <li key={s.title} className="flex flex-col bg-ink p-6">
+              <span className="font-mono text-[11px] text-ember">{String(i + 1).padStart(2, '0')}</span>
+              <h3 className="mt-3 text-xl font-semibold tracking-tight">{s.title}</h3>
+              <p className="mt-2 max-w-[48ch] flex-1 text-sm leading-relaxed text-bone-dim">
+                {method.status === 'ready' ? s.body(method.data) : <span className="inline-block h-10 w-full animate-pulse bg-bone/5" />}
+              </p>
+              <p className="mt-5 flex flex-wrap gap-x-3 gap-y-1 font-mono text-[11px] text-muted">
+                {s.fns.map((name) => {
+                  const fn = method.status === 'ready' ? method.data.functions.find((f) => f.name === name) : undefined
+                  return (
+                    <code key={name} title={fn?.signature}>
+                      <span className="text-bone">{name}()</span>
+                      {fn && <span> · line {fn.line}</span>}
+                    </code>
+                  )
+                })}
+              </p>
+            </li>
+          ))}
+          <li className="flex flex-col justify-between bg-ink-2 p-6">
+            <span className="font-mono text-[11px] text-muted">Final series</span>
+            <p className="mt-3 text-sm leading-relaxed text-bone">
+              Aqua observed (<DataValue file="national.json" pick={(d) => d.meta.first_month} /> to the month before{' '}
+              <DataValue file="national.json" pick={(d) => d.meta.viirs_start} />) + VIIRS → MODIS-equivalent (
+              <DataValue file="national.json" pick={(d) => d.meta.viirs_start} /> to{' '}
+              <DataValue file="national.json" pick={(d) => d.meta.last_month} />).
+            </p>
+            <p className="mt-5 font-mono text-[11px] text-muted">Unit · {UNIT}</p>
+          </li>
+        </ol>
       </div>
     </section>
   )
