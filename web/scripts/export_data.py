@@ -330,6 +330,111 @@ def parse_pipeline(path):
     }
 
 
+# ----------------------------------------------------------------------------- prep() filter counts
+def count_filters(data_dir, viirs_conf, modis_min_conf, target, first_month, last_month):
+    """Count detections through the same filters, in the same order, as harmonize_fire_v2.py:
+    read_sensor() (archive + NRT after the archive's last date) -> [MODIS: satellite == target] ->
+    prep(): vegetation fires (type 0; NRT assumed 0) -> afternoon passes (daynight D) -> confidence ->
+    exact duplicates dropped -> local date inside the analysis window. Read-only on data_dir.
+    The Vietnam mask (province polygons) is applied later in the pipeline and is not counted here."""
+    import datetime as dt
+
+    def find_one(pattern):
+        hits = sorted(pathlib_glob(data_dir, pattern))
+        return hits[0] if hits else None
+
+    def rows(archive, nrt):
+        last = None
+        if archive:
+            with open(archive, newline="", encoding="utf-8") as f:
+                for r in csv.DictReader(f):
+                    last = r["acq_date"] if last is None or r["acq_date"] > last else last
+                    yield r
+        if nrt:
+            with open(nrt, newline="", encoding="utf-8") as f:
+                for r in csv.DictReader(f):
+                    if last is None or r["acq_date"] > last:
+                        r.setdefault("type", "0")
+                        yield r
+
+    def local_month(r):
+        t0 = dt.datetime.strptime(r["acq_date"] + r["acq_time"].zfill(4), "%Y-%m-%d%H%M")
+        return (t0 + dt.timedelta(hours=7)).strftime("%Y-%m")
+
+    def run(kind, archive, nrt):
+        steps = [["all detections", 0]]
+        if kind == "modis":
+            steps.append([f"{target} only", 0])
+        steps += [["vegetation fires (type 0)", 0], ["afternoon passes (daynight D)", 0],
+                  [f"confidence {'n, h' if kind == 'viirs' else '>= ' + str(modis_min_conf)}", 0],
+                  ["duplicates removed", 0], [f"local date {first_month} to {last_month}", 0]]
+        keep_conf = {c.strip() for c in viirs_conf.split(",")}
+        seen = set()
+        for r in rows(archive, nrt):
+            i = 0
+            steps[i][1] += 1
+            if kind == "modis":
+                if r["satellite"] != target:
+                    continue
+                i += 1
+                steps[i][1] += 1
+            if str(r.get("type", "0") or "0").strip() not in ("0", "0.0"):
+                continue
+            i += 1; steps[i][1] += 1
+            if r["daynight"] != "D":
+                continue
+            i += 1; steps[i][1] += 1
+            if kind == "viirs":
+                if r["confidence"] not in keep_conf:
+                    continue
+            else:
+                try:
+                    if float(r["confidence"]) < modis_min_conf:
+                        continue
+                except ValueError:
+                    continue
+            i += 1; steps[i][1] += 1
+            key = (r["satellite"], r["acq_date"], r["acq_time"], round(float(r["latitude"]), 3), round(float(r["longitude"]), 3))
+            if key in seen:
+                continue
+            seen.add(key)
+            i += 1; steps[i][1] += 1
+            if not (first_month <= local_month(r) <= last_month):
+                continue
+            i += 1; steps[i][1] += 1
+        return [{"label": a, "n": n} for a, n in steps]
+
+    out = {}
+    m_arch, m_nrt = find_one("fire_archive_M-C61*.csv"), find_one("fire_nrt_M-C61*.csv")
+    v_arch, v_nrt = find_one("fire_archive_SV-C2*.csv"), find_one("fire_nrt_SV-C2*.csv")
+    if m_arch or m_nrt:
+        out["modis"] = {"sensor": f"MODIS C6.1 ({target})", "files": [Path(x).name for x in (m_arch, m_nrt) if x], "steps": run("modis", m_arch, m_nrt)}
+    if v_arch or v_nrt:
+        out["viirs"] = {"sensor": "VIIRS C2 (S-NPP)", "files": [Path(x).name for x in (v_arch, v_nrt) if x], "steps": run("viirs", v_arch, v_nrt)}
+    return out
+
+
+def pathlib_glob(directory, pattern):
+    return [str(x) for x in Path(directory).glob(pattern)]
+
+
+def pipeline_permalink(root, rel):
+    """GitHub permalink of the pipeline file, only if origin/main holds exactly the local file."""
+    try:
+        def git(*a):
+            return subprocess.run(["git", *a], cwd=root, capture_output=True, text=True, timeout=30).stdout.strip()
+        remote = git("remote", "get-url", "origin")
+        m = re.search(r"github\.com[:/](.+?)(?:\.git)?$", remote)
+        commit = git("log", "-1", "--format=%H", "origin/main", "--", rel)
+        if not (m and commit):
+            return None
+        if git("rev-parse", f"origin/main:{rel}") != git("hash-object", rel):
+            return None
+        return f"https://github.com/{m.group(1)}/blob/{commit}/{rel}"
+    except Exception:
+        return None
+
+
 # ----------------------------------------------------------------------------- check_outputs.py
 def find_python(preferred):
     cands = [preferred] if preferred else []
@@ -407,6 +512,7 @@ def main():
                     help="interpreter with pandas+numpy for check_outputs.py (default: auto-detect)")
     ap.add_argument("--simplify", type=float, default=0.004, help="Douglas-Peucker tolerance in degrees")
     ap.add_argument("--skip-checks", action="store_true", help="do not run check_outputs.py")
+    ap.add_argument("--data", default="data/CSV", help="raw FIRMS CSVs, read only, for the filter counts on /method")
     a = ap.parse_args()
     for s in (sys.stdout, sys.stderr):              # Windows consoles default to cp1252; names have diacritics
         try:
@@ -809,8 +915,14 @@ def main():
 
     # ---------------------------------------------------------------- method.json + checks.json
     print("[9/9] method.json, checks.json")
+    pipe["source_url"] = pipeline_permalink(root, PIPELINE)
+    if Path(a.data).exists():
+        print("      counting prep() filters in", a.data, "(read only)")
+        pipe["filter_counts"] = count_filters(a.data, argd.get("--viirs-conf"), argd.get("--modis-min-conf"),
+                                              argd.get("--target"), months[0], months[-1])
     write_json(web / "method.json", {"meta": {"generator": GENERATOR,
-                                              "note": "Parsed from the pipeline source with ast; never imported."},
+                                              "note": "Parsed from the pipeline source with ast; never imported. "
+                                                      "filter_counts: raw FIRMS CSVs counted through prep()'s filters."},
                                      **pipe}, written)
     chk = None
     if not a.skip_checks:

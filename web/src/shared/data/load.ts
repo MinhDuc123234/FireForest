@@ -170,6 +170,10 @@ export type Method = {
     line: number
   }[]
   viirs_start: { value: string; comment: string; line: number } | null
+  /** GitHub permalink of the pipeline file at a commit holding exactly this version (null if none) */
+  source_url: string | null
+  /** raw FIRMS detections counted through prep()'s filters, in order */
+  filter_counts?: Record<'modis' | 'viirs', { sensor: string; files: string[]; steps: { label: string; n: number }[] }>
   pixel_area_formula: { source: string; comment: string } | null
 }
 
