@@ -3,25 +3,18 @@ import React from 'react'
 import { Logo, SECTIONS } from './SiteNav'
 
 const REPO = 'https://github.com/MinhDuc123234/FireForest'
-const SPACE_APPS = 'https://www.spaceappschallenge.org/'
+const CHALLENGE = 'https://www.spaceappschallenge.org/2026/challenges/harmonization-of-modis-and-viirs-hot-spots/'
 
 /** Team members, in display order. Names to be supplied by the team. */
 const TEAM: string[] = []
 
-export function ThermalFooter({ onDashboard }: { onDashboard?: () => void }) {
+export function ThermalFooter() {
   return (
     <footer className="border-t border-line">
       <div className="mx-auto max-w-[1280px] px-5 pb-10 pt-24 md:px-10 md:pt-32">
         <p className="max-w-[16ch] text-[clamp(2.5rem,7vw,6rem)] font-semibold leading-[0.9] tracking-[-0.04em] text-bone">
           Read the fire season before it starts.
         </p>
-        <button
-          type="button"
-          onClick={onDashboard}
-          className="mt-10 whitespace-nowrap bg-bone px-5 py-3 text-sm font-semibold text-ink transition-colors duration-150 hover:bg-ember focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ember"
-        >
-          Open Explorer
-        </button>
 
         <div className="mt-24 grid gap-10 border-t border-line pt-8 text-sm md:grid-cols-12 md:gap-8">
           <div className="md:col-span-5">
@@ -52,8 +45,8 @@ export function ThermalFooter({ onDashboard }: { onDashboard?: () => void }) {
                 </a>
               </li>
               <li>
-                <a href={SPACE_APPS} className="text-bone-dim hover:text-bone" rel="noreferrer" target="_blank">
-                  NASA Space Apps Challenge
+                <a href={CHALLENGE} className="text-bone-dim hover:text-bone" rel="noreferrer" target="_blank">
+                  Challenge page
                 </a>
               </li>
               <li>

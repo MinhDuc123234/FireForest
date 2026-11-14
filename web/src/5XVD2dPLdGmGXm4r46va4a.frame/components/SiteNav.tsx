@@ -2,10 +2,8 @@ import React from 'react'
 
 /** Page sections, in page order. "Seasons" groups the seasonal calendar, the burning calendar and the 10 km map. */
 export const SECTIONS = [
-  { label: 'Story', href: '#story' },
   { label: 'Method', href: '#method' },
   { label: 'Seasons', href: '#seasons' },
-  { label: 'Trust', href: '#trust' },
 ]
 
 export function Logo() {
@@ -19,7 +17,7 @@ export function Logo() {
   )
 }
 
-export function SiteNav({ onDashboard }: { onDashboard?: () => void }) {
+export function SiteNav() {
   return (
     <header className="sticky top-0 z-30 border-b border-line bg-ink/90 backdrop-blur">
       <div className="mx-auto flex h-14 max-w-[1280px] items-center gap-6 px-5 md:px-10">
@@ -35,13 +33,6 @@ export function SiteNav({ onDashboard }: { onDashboard?: () => void }) {
             </a>
           ))}
         </nav>
-        <button
-          type="button"
-          onClick={onDashboard}
-          className="ml-auto shrink-0 whitespace-nowrap bg-ember px-3.5 py-1.5 text-sm font-semibold text-ink transition-colors duration-150 hover:bg-bone focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ember sm:ml-2"
-        >
-          Open Explorer
-        </button>
       </div>
       <nav aria-label="Sections" className="flex gap-1 overflow-x-auto border-t border-line px-3 py-1.5 sm:hidden">
         {SECTIONS.map((l) => (

@@ -3,12 +3,10 @@ import React from 'react'
 import { SiteNav } from './components/SiteNav'
 import { Hero } from './components/Hero'
 import { Methodology } from './components/Methodology'
-import { Harmonization } from './components/Harmonization'
 import { HarmonizedMap } from './components/HarmonizedMap'
 import { BurningCalendar } from './components/BurningCalendar'
-import { SeasonalTrends } from './components/SeasonalTrends'
-import { TrustLimits } from './components/TrustLimits'
 import { ThermalFooter } from './components/ThermalFooter'
+import { FireStripes } from '../shared/components/FireStripes'
 
 export const args = {
   title: 'FireForest',
@@ -22,22 +20,27 @@ export const argTypes = {
 
 type Props = Partial<typeof args> & { onExploreDashboard?: () => void }
 
-/** Page order follows the nav: Story · Method · Seasons (seasonal, burning calendar, 10 km map) · Trust. */
+/**
+ * Page order follows the nav. Only finished sections are rendered: nothing unfinished is ever shown.
+ * (The Explorer frame is not linked until it is built.)
+ */
 export default function Home(props: Props) {
-  const { title, subtitle, onExploreDashboard } = { ...args, ...props }
+  const { title, subtitle } = { ...args, ...props }
   return (
     <div className="bg-ink text-bone">
-      <SiteNav onDashboard={onExploreDashboard} />
+      <SiteNav />
       <main>
-        <Hero title={title} subtitle={subtitle} onExplore={onExploreDashboard} />
-        <Harmonization />
+        <Hero title={title} subtitle={subtitle} />
+        <div className="mx-auto max-w-[1280px] px-5 pt-16 md:px-10">
+          <FireStripes />
+        </div>
         <Methodology />
-        <SeasonalTrends />
-        <BurningCalendar />
-        <HarmonizedMap />
-        <TrustLimits />
+        <div id="seasons" className="scroll-mt-20">
+          <BurningCalendar />
+          <HarmonizedMap />
+        </div>
       </main>
-      <ThermalFooter onDashboard={onExploreDashboard} />
+      <ThermalFooter />
     </div>
   )
 }

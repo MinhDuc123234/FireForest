@@ -737,6 +737,14 @@ def main():
                            "constant_ratio is reported for honesty: it has the smaller national bias, the "
                            "physics + calibration method has the smaller wMAPE and smaller regional biases."]},
         "step_2012": step,
+        "windows": {
+            "step_before": [2007, 2011], "step_after": [2012, 2016],
+            "calibration": [int(viirs_start[:4]), argd.get("--calib-end")],
+            "train": [int(viirs_start[:4]), argd.get("--train-end")],
+            # same rule as the pipeline: test = complete years after train_end
+            "test": [argd.get("--train-end") + 1,
+                     int(months[-1][:4]) - (0 if months[-1][5:] == "12" else 1)],
+        },
         "annual_national": {col: {str(y): (None if v is None else round(v, 1)) for y, v in sorted(ann[col].items())}
                             for col in ann},
         "trend": {col: trend_obj(col) for col in ("naive_splice", "harmonized", "aqua_observed")},

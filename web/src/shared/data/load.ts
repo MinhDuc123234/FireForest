@@ -120,6 +120,7 @@ type Held = { bias_pct: number; wMAPE_pct: number; r_log: number }
 export type Kpi = {
   meta: { generator: string; pipeline: string; unit: string; sources: Record<string, string>; notes: string[] }
   step_2012: Record<'naive_splice' | 'harmonized' | 'aqua_observed', Step>
+  windows: Record<'step_before' | 'step_after' | 'calibration' | 'train' | 'test', [number, number]>
   annual_national: Record<'naive_splice' | 'harmonized' | 'aqua_observed', Record<string, number | null>>
   trend: Record<'naive_splice' | 'harmonized' | 'aqua_observed', Trend>
   held_out: Record<'raw_viirs' | 'constant_ratio' | 'physics_calibration', Held>
