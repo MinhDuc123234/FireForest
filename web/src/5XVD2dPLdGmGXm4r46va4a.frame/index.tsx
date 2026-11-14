@@ -6,6 +6,7 @@ import { Methodology } from './components/Methodology'
 import { Harmonization } from './components/Harmonization'
 import { HarmonizedMap } from './components/HarmonizedMap'
 import { BurningCalendar } from './components/BurningCalendar'
+import { SeasonalTrends } from './components/SeasonalTrends'
 import { ThermalFooter } from './components/ThermalFooter'
 import { FireStripes } from '../shared/components/FireStripes'
 
@@ -38,6 +39,7 @@ export default function Home(props: Props) {
         <Harmonization />
         <Methodology />
         <div id="seasons" className="scroll-mt-20">
+          <SeasonalTrends />
           <BurningCalendar />
           <HarmonizedMap />
         </div>

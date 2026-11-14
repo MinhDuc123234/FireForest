@@ -1,168 +1,292 @@
-import React, { useEffect, useMemo, useState } from 'react'
+import React, { useEffect, useMemo, useRef, useState } from 'react'
+import { geoMercator, geoPath, type GeoPermissibleObjects } from 'd3-geo'
 
-import { gridFile, sourceChip, useData } from '../../shared/data/load'
+import { SourceChip } from '../../shared/components/SourceChip'
+import { gridFile, useData, type GridCell, type ProvincesGeo } from '../../shared/data/load'
+import { AQUA, TRUST, WARN, inferno } from '../../shared/lib/colors'
+import { MONTHS, MONTHS_LONG, fmtInt, fmtNum } from '../../shared/lib/format'
+import { useWidth } from '../../shared/lib/useWidth'
 
-type GridRow = {
-  cell: string
-  month: string
-  value: number
-  lat: number
-  lon: number
-  region: string
-  province: string
-}
+const HALF_CELL_DEG = 5 / 111.195 // half of a 10 km cell in degrees of latitude (KM_DEG, harmonize_fire_v2.py)
+const OFFSHORE_LON = 110.5 // parts east of this are the archipelagos (same rule as export_data.py)
+const ARCHIPELAGO: Record<string, string> = { 'Đà Nẵng': 'Hoàng Sa', 'Khánh Hòa': 'Trường Sa' }
 
-const W = 520
-const H = 720
-const MIN_LON = 101.8
-const MAX_LON = 109.8
-const MIN_LAT = 8.1
-const MAX_LAT = 23.8
-const X_PAD = 84
-const Y_PAD = 48
-const X_SCALE = (H - Y_PAD * 2) / (MAX_LAT - MIN_LAT) * 0.58
-const Y_SCALE = (H - Y_PAD * 2) / (MAX_LAT - MIN_LAT)
-const MAP_WIDTH = (MAX_LON - MIN_LON) * X_SCALE
-const MAP_LEFT = (W - MAP_WIDTH) / 2
+type FC = { type: 'FeatureCollection'; features: { type: 'Feature'; properties: { name: string }; geometry: GeoPermissibleObjects }[] }
 
-function point(lon: number, lat: number) {
-  return {
-    x: MAP_LEFT + (lon - MIN_LON) * X_SCALE,
-    y: H - Y_PAD - (lat - MIN_LAT) * Y_SCALE,
+/** Planar signed area of a [lon, lat] ring (> 0 = counter-clockwise). */
+const signed = (r: number[][]) => r.reduce((s, p, i) => { const q = r[(i + 1) % r.length]; return s + p[0] * q[1] - q[0] * p[1] }, 0)
+/**
+ * d3-geo uses the spherical convention (exterior rings clockwise); geoBoundaries follows RFC 7946
+ * (counter-clockwise). Rewind every polygon so d3 does not read it as "the whole globe minus Vietnam".
+ */
+const rewind = (poly: number[][][]) => poly.map((r, i) => ((i === 0) === signed(r) > 0 ? [...r].reverse() : r))
+
+/** Split provinces into the mainland and the two offshore archipelagos. */
+function split(geo: ProvincesGeo) {
+  const main: FC = { type: 'FeatureCollection', features: [] }
+  const off: Record<string, FC> = {}
+  for (const f of geo.features) {
+    const polys = (f.geometry.type === 'Polygon' ? [f.geometry.coordinates] : f.geometry.coordinates).map(rewind)
+    const near = polys.filter((p) => Math.min(...p[0].map((c) => c[0])) <= OFFSHORE_LON)
+    const far = polys.filter((p) => Math.min(...p[0].map((c) => c[0])) > OFFSHORE_LON)
+    if (near.length) main.features.push({ type: 'Feature', properties: { name: f.properties.name }, geometry: { type: 'MultiPolygon', coordinates: near } as GeoPermissibleObjects })
+    if (far.length) {
+      const k = ARCHIPELAGO[f.properties.name] ?? f.properties.name
+      off[k] = { type: 'FeatureCollection', features: [{ type: 'Feature', properties: { name: f.properties.name }, geometry: { type: 'MultiPolygon', coordinates: far } as GeoPermissibleObjects }] }
+    }
   }
+  return { main, off }
 }
-
-// Simplified Vietnam silhouette to orient the observed 10 km grid cells.
-const OUTLINE: [number, number][] = [
-  [102.15, 22.4], [103.0, 22.9], [103.6, 22.8], [104.3, 22.1], [105.1, 21.7],
-  [106.0, 22.0], [106.7, 21.6], [107.4, 21.0], [107.5, 20.2], [106.7, 19.7],
-  [106.4, 18.8], [107.0, 17.7], [108.0, 16.4], [108.2, 15.2], [107.8, 14.3],
-  [109.3, 12.1], [109.2, 11.2], [108.4, 10.5], [107.8, 9.2], [106.8, 8.6],
-  [105.8, 9.0], [105.1, 9.5], [104.5, 10.0], [103.8, 9.5], [103.0, 9.3],
-  [102.5, 10.0], [103.0, 11.3], [104.0, 12.4], [105.1, 13.2], [105.8, 14.5],
-  [105.6, 15.5], [106.3, 16.5], [107.3, 17.6], [107.0, 18.7], [105.8, 19.8],
-  [105.2, 20.9], [104.1, 21.5], [103.2, 22.1], [102.15, 22.4],
-]
 
 export function HarmonizedMap() {
-  const cellsFile = useData('grid_cells.json')
-  const [year, setYear] = useState('')
-  const [month, setMonth] = useState('all')
-  const yearFile = useData(year ? gridFile(Number(year)) : null)
+  const cellsF = useData('grid_cells.json')
+  const geoF = useData('provinces.geojson')
+  const natF = useData('national.json')
+  const trustF = useData('trust.json')
+  const [year, setYear] = useState(0)
+  const [month, setMonth] = useState(0) // 0 = full year, 1..12
+  const yearF = useData(year ? gridFile(year) : null)
 
-  // years available in the grid (first_month..last_month of grid_cells.json), latest first
   const years = useMemo(() => {
-    if (cellsFile.status !== 'ready') return []
-    const a = Number(cellsFile.data.meta.first_month.slice(0, 4))
-    const b = Number(cellsFile.data.meta.last_month.slice(0, 4))
-    return Array.from({ length: b - a + 1 }, (_, i) => String(b - i))
-  }, [cellsFile])
+    if (cellsF.status !== 'ready') return []
+    const a = Number(cellsF.data.meta.first_month.slice(0, 4)), b = Number(cellsF.data.meta.last_month.slice(0, 4))
+    return Array.from({ length: b - a + 1 }, (_, i) => b - i)
+  }, [cellsF])
   useEffect(() => {
-    if (!year && years.length) setYear(years[0])
+    if (!year && years.length) {
+      setYear(years[1] ?? years[0]) // latest complete year
+      setMonth(3)
+    }
   }, [year, years])
 
-  // province / region of each cell, keyed by its rounded centre
-  const cellInfo = useMemo(() => {
-    const m = new Map<string, { cell: string; region: string; province: string }>()
-    if (cellsFile.status === 'ready')
-      for (const [cell10, lat, lon, province, region] of cellsFile.data.cells) m.set(`${lat},${lon}`, { cell: String(cell10), region, province })
-    return m
-  }, [cellsFile])
-
-  const rows = useMemo<GridRow[]>(() => {
-    if (!year || yearFile.status !== 'ready' || !cellInfo.size) return []
-    return yearFile.data.rows.map(([lat, lon, m, harm]) => {
-      const info = cellInfo.get(`${lat},${lon}`)
-      return { cell: info?.cell ?? `${lat},${lon}`, month: `${year}-${String(m + 1).padStart(2, '0')}`, value: harm, lat, lon,
-        region: info?.region ?? '', province: info?.province ?? '' }
-    })
-  }, [yearFile, cellInfo, year])
-  const error = cellsFile.status === 'error' ? cellsFile.error.message : year && yearFile.status === 'error' ? yearFile.error.message : ''
-
-  const visible = useMemo(() => {
-    const byCell = new Map<string, GridRow>()
-    for (const row of rows) {
-      if (year && row.month.slice(0, 4) !== year) continue
-      if (month !== 'all' && row.month.slice(5, 7) !== month) continue
-      const current = byCell.get(row.cell)
-      if (current) current.value += row.value
-      else byCell.set(row.cell, { ...row })
+  const values = useMemo(() => {
+    const v = new Map<string, number>()
+    if (yearF.status !== 'ready') return v
+    for (const [lat, lon, m, h] of yearF.data.rows) {
+      if (month && m !== month - 1) continue
+      const k = `${lat},${lon}`
+      v.set(k, (v.get(k) ?? 0) + h)
     }
-    return [...byCell.values()]
-  }, [rows, year, month])
+    return v
+  }, [yearF, month])
 
-  const max = Math.max(0, ...visible.map((row) => row.value))
-  const total = visible.reduce((sum, row) => sum + row.value, 0)
-  const outline = OUTLINE.map(([lon, lat]) => {
-    const p = point(lon, lat)
-    return `${p.x.toFixed(1)},${p.y.toFixed(1)}`
-  }).join(' ')
+  if ([cellsF, geoF, natF, trustF].some((s) => s.status === 'error')) return null
+  if (cellsF.status !== 'ready' || geoF.status !== 'ready' || natF.status !== 'ready' || trustF.status !== 'ready' || !year)
+    return <section id="data-map" className="min-h-[900px]" />
+
+  const cells = cellsF.data.cells
+  let total = 0, active = 0
+  const byProv = new Map<string, number>()
+  for (const c of cells) {
+    const v = values.get(`${c[1]},${c[2]}`) ?? 0
+    if (v > 0) {
+      active++
+      total += v
+      byProv.set(c[3], (byProv.get(c[3]) ?? 0) + v)
+    }
+  }
+  const top = [...byProv.entries()].sort((a, b) => b[1] - a[1]).slice(0, 10)
+  const ym = month ? `${year}-${String(month).padStart(2, '0')}` : `${year}`
+  const mi = month ? natF.data.months.indexOf(ym) : -1
+  const gap = mi >= 0 && natF.data.regions.Vietnam.aqua_gap[mi]
+  const drift = year > trustF.data.calibration_R.calib_end
+  const loading = yearF.status !== 'ready'
 
   return (
     <section id="data-map" className="scroll-mt-20 border-t border-line">
       <div className="mx-auto max-w-[1280px] px-5 py-24 md:px-10 md:py-32">
-        <div className="grid gap-10 lg:grid-cols-[minmax(0,1fr)_minmax(320px,0.72fr)] lg:items-end">
-          <div>
-            <p className="font-mono text-[11px] uppercase tracking-[0.18em] text-ember">Vietnam · 10 km grid</p>
-            <h2 className="mt-4 max-w-[14ch] text-[clamp(2.5rem,6vw,5.25rem)] font-semibold leading-[0.92] tracking-[-0.04em]">A national record, cell by cell.</h2>
-          </div>
-          <p className="max-w-lg text-sm leading-relaxed text-bone-dim md:text-base">Harmonized fire-active cell-days from the project output, positioned at each 10 km grid-cell center. Select a year and month to explore where activity was recorded.</p>
+        <p className="font-mono text-[11px] text-muted">Where</p>
+        <div className="mt-3 grid gap-6 lg:grid-cols-12 lg:items-end lg:gap-8">
+          <h2 className="max-w-[16ch] text-[clamp(2.25rem,5vw,4.25rem)] font-semibold leading-[0.95] tracking-[-0.035em] lg:col-span-7">
+            {fmtInt(cells.length)} cells, 10 km each
+          </h2>
+          <p className="max-w-[48ch] text-sm leading-relaxed text-bone-dim lg:col-span-5 md:text-base">
+            Harmonized fire-active cell-days per 10 km cell, drawn at true size on the province map. The grid starts with VIIRS in{' '}
+            {MONTHS[Number(cellsF.data.meta.first_month.slice(5)) - 1]} {cellsF.data.meta.first_month.slice(0, 4)}.
+          </p>
         </div>
 
-        <div className="mt-12 grid overflow-hidden border border-line bg-ink-2/40 lg:grid-cols-[minmax(0,1.15fr)_minmax(280px,0.85fr)]">
-          <div className="relative flex min-h-[520px] justify-center border-b border-line p-4 sm:p-8 lg:border-b-0 lg:border-r">
-            {rows.length ? (
-              <svg viewBox={`0 0 ${W} ${H}`} className="h-[min(78vh,760px)] w-auto max-w-full" role="img" aria-label={`Map of harmonized fire activity across Vietnam for ${month === 'all' ? 'all months' : `month ${month}`} ${year}`}>
-                <defs>
-                  <pattern id="vn-grid" width="32" height="32" patternUnits="userSpaceOnUse"><path d="M32 0H0V32" fill="none" stroke="#292923" strokeWidth="1" /></pattern>
-                </defs>
-                <rect width={W} height={H} fill="url(#vn-grid)" />
-                <path d={`M${outline.replaceAll(' ', ' L')} Z`} fill="#161f19" stroke="#677a64" strokeWidth="1.3" />
-                {[10, 15, 20].map((lat) => {
-                  const p = point(MIN_LON, lat)
-                  return <g key={lat}><line x1={MAP_LEFT} x2={MAP_LEFT + MAP_WIDTH} y1={p.y} y2={p.y} stroke="#35372f" strokeDasharray="3 5" /><text x={MAP_LEFT - 8} y={p.y + 3} textAnchor="end" fill="#77766e" fontFamily="monospace" fontSize="9">{lat}°N</text></g>
-                })}
-                {visible.map((row) => {
-                  const p = point(row.lon, row.lat)
-                  const t = max ? Math.sqrt(row.value / max) : 0
-                  const radius = 1.6 + t * 4.4
-                  return <circle key={row.cell} cx={p.x} cy={p.y} r={radius} fill="#ff6a1f" fillOpacity={0.18 + t * 0.78} stroke="#ffb17e" strokeOpacity={t * 0.65} strokeWidth="0.5"><title>{`${row.province}, ${row.region}\n${Number(row.value.toFixed(2))} harmonized cell-days`}</title></circle>
-                })}
-                <text x={W / 2} y={H - 14} textAnchor="middle" fill="#77766e" fontFamily="monospace" fontSize="9">Cell markers · 10 km resolution · stylized boundary</text>
-              </svg>
-            ) : error ? (
-              <p className="m-auto max-w-sm text-center text-sm text-ember">{error}</p>
-            ) : (
-              <p className="m-auto font-mono text-xs text-muted">Loading harmonized grid…</p>
-            )}
+        <div className="mt-12 grid gap-px border border-line bg-line lg:grid-cols-12">
+          <div className="relative min-w-0 bg-[#0b0b0a] lg:col-span-8">
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-2 border-b border-line px-4 py-3">
+              <p className="font-mono text-[11px] tabular-nums text-bone">
+                {ym} · {fmtInt(active)} active cells · {fmtInt(total)} cell-days
+              </p>
+              {(gap || drift) && (
+                <p className="border border-dashed px-2 py-0.5 font-mono text-[10px]" style={{ borderColor: WARN, color: WARN }}>
+                  {gap ? 'Aqua gap month: VIIRS-filled' : `After ${trustF.data.calibration_R.calib_end}: calibration extrapolated (Aqua drift)`}
+                </p>
+              )}
+            </div>
+            <MapCanvas geo={geoF.data} cells={cells} values={values} dim={loading} />
           </div>
 
-          <div className="flex flex-col p-6 md:p-8">
-            <div className="flex flex-wrap items-start justify-between gap-4 border-b border-line pb-5">
-              <div><h3 className="text-sm font-medium">Harmonized activity</h3><p className="mt-1 font-mono text-[10px] text-muted">MODIS-equivalent cell-days · monthly source data</p></div>
-              <span className="border border-ember/50 px-2 py-1 font-mono text-[10px] text-ember">{year || '…'}</span>
+          <div className="flex min-w-0 flex-col bg-ink p-6 lg:col-span-4">
+            <div className="grid grid-cols-2 gap-4">
+              <label className="block">
+                <span className="mb-2 block font-mono text-[11px] text-muted">Year</span>
+                <select value={year} onChange={(e) => setYear(Number(e.target.value))} className="w-full border border-line bg-ink-2 px-2 py-2 font-mono text-xs text-bone [color-scheme:dark] focus:border-bone-dim focus:outline-none">
+                  {years.map((y) => <option key={y} value={y}>{y}</option>)}
+                </select>
+              </label>
+              <label className="block">
+                <span className="mb-2 block font-mono text-[11px] text-muted">Month</span>
+                <select value={month} onChange={(e) => setMonth(Number(e.target.value))} className="w-full border border-line bg-ink-2 px-2 py-2 font-mono text-xs text-bone [color-scheme:dark] focus:border-bone-dim focus:outline-none">
+                  <option value={0}>Full year</option>
+                  {MONTHS_LONG.map((n, i) => <option key={n} value={i + 1}>{n}</option>)}
+                </select>
+              </label>
             </div>
-            <div className="mt-6 grid grid-cols-2 gap-px border border-line bg-line">
-              <Stat label="Active cells" value={visible.length.toLocaleString()} />
-              <Stat label="Cell-days" value={total.toLocaleString(undefined, { maximumFractionDigits: 0 })} />
+
+            <dl className="mt-6 grid grid-cols-2 gap-px border border-line bg-line">
+              <div className="bg-ink p-4"><dt className="font-mono text-[10px] text-muted">active cells</dt><dd className="mt-1 text-2xl font-semibold tabular-nums">{fmtInt(active)}</dd></div>
+              <div className="bg-ink p-4"><dt className="font-mono text-[10px] text-muted">cell-days</dt><dd className="mt-1 text-2xl font-semibold tabular-nums">{fmtInt(total)}</dd></div>
+            </dl>
+
+            <h3 className="mt-8 font-mono text-[11px] text-muted">Top provinces, {month ? MONTHS_LONG[month - 1] : 'full year'} {year}</h3>
+            <ol className="mt-3 space-y-2">
+              {top.map(([p, v]) => (
+                <li key={p} className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 text-sm">
+                  <span className="truncate text-bone">{p}</span>
+                  <span className="font-mono text-[11px] tabular-nums text-bone-dim">{fmtNum(v, 0)}</span>
+                  <span className="col-span-2 h-1 bg-line"><span className="block h-full" style={{ width: `${(v / top[0][1]) * 100}%`, background: inferno(0.75) }} /></span>
+                </li>
+              ))}
+            </ol>
+
+            <div className="mt-8">
+              <div className="font-mono text-[10px] text-bone-dim">cell-days per cell · √ scale · max {fmtNum(Math.max(0, ...values.values()), 1)}</div>
+              <div className="mt-1 h-1.5" style={{ background: `linear-gradient(90deg, ${Array.from({ length: 9 }, (_, i) => inferno(0.12 + (0.88 * i) / 8)).join(',')})` }} />
+              <div className="mt-1 flex justify-between font-mono text-[10px] text-muted"><span>low</span><span>high</span></div>
             </div>
-            <div className="mt-7 grid gap-5 sm:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2">
-              <label className="block"><span className="mb-2 block font-mono text-[10px] uppercase tracking-wide text-muted">Year</span><select value={year} onChange={(e) => setYear(e.target.value)} className="w-full border border-line bg-ink px-3 py-2 font-mono text-sm text-bone [color-scheme:dark] focus:border-ember">{years.map((y) => <option key={y} value={y}>{y}</option>)}</select></label>
-              <label className="block"><span className="mb-2 block font-mono text-[10px] uppercase tracking-wide text-muted">Month</span><select value={month} onChange={(e) => setMonth(e.target.value)} className="w-full border border-line bg-ink px-3 py-2 font-mono text-sm text-bone [color-scheme:dark] focus:border-ember"><option value="all">Full year</option>{Array.from({ length: 12 }, (_, i) => String(i + 1).padStart(2, '0')).map((m) => <option key={m} value={m}>{new Date(2000, Number(m) - 1).toLocaleString('en', { month: 'long' })}</option>)}</select></label>
-            </div>
-            <div className="mt-8 border-t border-line pt-6">
-              <div className="flex items-center justify-between font-mono text-[10px] text-muted"><span>Lower activity</span><span>Higher activity</span></div>
-              <div className="mt-2 h-2 w-full bg-gradient-to-r from-[#2a241e] via-[#a84419] to-[#ffb17e]" />
-              <p className="mt-5 text-xs leading-relaxed text-muted">{month === 'all' ? `Annual total across ${year || 'selected year'};` : `Monthly value for ${new Date(2000, Number(month) - 1).toLocaleString('en', { month: 'long' })} ${year || ''};`} each marker is a grid cell with harmonized detections in the source output. The outline is simplified for orientation.</p>
-            </div>
+            <p className="mt-auto pt-8 text-xs leading-relaxed text-muted">
+              Point estimates; cell-level bands are not computed. Province outlines: geoBoundaries ADM1.
+            </p>
           </div>
         </div>
-        <p className="mt-3 font-mono text-[10px] text-muted">{sourceChip('out/grid10km_monthly_harmonized.csv')} · point estimate · grid/{year || '…'}.json</p>
+        <SourceChip csv="grid10km_monthly_harmonized.csv" className="mt-3" extra={`grid/${year}.json · point estimate`} />
       </div>
     </section>
   )
 }
 
-function Stat({ label, value }: { label: string; value: string }) {
-  return <div className="bg-ink p-4"><dt className="font-mono text-[9px] uppercase tracking-wide text-muted">{label}</dt><dd className="mt-1 text-2xl font-semibold tracking-tight text-bone">{value}</dd></div>
+function MapCanvas({ geo, cells, values, dim }: { geo: ProvincesGeo; cells: GridCell[]; values: Map<string, number>; dim: boolean }) {
+  const [wrap, W] = useWidth()
+  const cvRef = useRef<HTMLCanvasElement>(null)
+  const { main, off } = useMemo(() => split(geo), [geo])
+  const [hover, setHover] = useState<{ x: number; y: number; c: GridCell; v: number } | null>(null)
+
+  // layout: mainland on the left ~70%, insets in the sea to the right
+  const layout = useMemo(() => {
+    const mainW = Math.round(W * 0.72)
+    const proj = geoMercator().fitWidth(mainW - 24, main as unknown as GeoPermissibleObjects)
+    const b = geoPath(proj).bounds(main as unknown as GeoPermissibleObjects)
+    const H = Math.ceil(b[1][1] - b[0][1]) + 32
+    proj.translate([proj.translate()[0] + 12 - b[0][0], proj.translate()[1] + 16 - b[0][1]])
+    const iw = Math.max(92, Math.round(W * 0.22))
+    const insets = Object.entries(off).map(([name, fc]) => {
+      const anchorLat = name === 'Hoàng Sa' ? 17.2 : 11.6
+      const y0 = (proj([108, anchorLat]) ?? [0, 0])[1]
+      const box: [[number, number], [number, number]] = [[W - iw - 10, y0], [W - 10, y0 + iw * 0.8]]
+      const p = geoMercator().fitExtent([[box[0][0] + 8, box[0][1] + 8], [box[1][0] - 8, box[1][1] - 8]], fc as unknown as GeoPermissibleObjects)
+      return { name, fc, box, p }
+    })
+    // cell squares: centre + side from the projected size of 10 km of latitude
+    const sq = cells.map((c) => {
+      const p = proj([c[2], c[1]]) ?? [0, 0]
+      const a = proj([c[2], c[1] + HALF_CELL_DEG]) ?? p
+      const s = Math.abs(p[1] - a[1]) * 2
+      return { x: p[0], y: p[1], s }
+    })
+    const H2 = Math.max(H, ...insets.map((i) => i.box[1][1] + 56))
+    return { proj, H: H2, insets, sq }
+  }, [W, main, off, cells])
+
+  const vmax = Math.max(0.001, ...values.values())
+
+  useEffect(() => {
+    const cv = cvRef.current
+    if (!cv) return
+    const dpr = Math.min(window.devicePixelRatio || 1, 2)
+    cv.width = W * dpr
+    cv.height = layout.H * dpr
+    const ctx = cv.getContext('2d')
+    if (!ctx) return
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
+    ctx.clearRect(0, 0, W, layout.H)
+    const path = geoPath(layout.proj, ctx)
+    ctx.fillStyle = '#121210'
+    ctx.strokeStyle = 'rgba(236,235,228,0.16)'
+    ctx.lineWidth = 0.6
+    ctx.beginPath(); path(main as unknown as GeoPermissibleObjects); ctx.fill(); ctx.stroke()
+    // cells
+    cells.forEach((c, i) => {
+      const v = values.get(`${c[1]},${c[2]}`) ?? 0
+      const q = layout.sq[i]
+      const s = Math.max(1, q.s * 0.92)
+      ctx.fillStyle = v > 0 ? inferno(0.12 + 0.88 * Math.sqrt(v / vmax)) : 'rgba(236,235,228,0.05)'
+      ctx.fillRect(q.x - s / 2, q.y - s / 2, s, s)
+    })
+    // insets
+    for (const ins of layout.insets) {
+      const [[x0, y0], [x1, y1]] = ins.box
+      ctx.strokeStyle = 'rgba(236,235,228,0.35)'
+      ctx.lineWidth = 0.8
+      ctx.strokeRect(x0 + 0.5, y0 + 0.5, x1 - x0 - 1, y1 - y0 - 1)
+      const ip = geoPath(ins.p, ctx)
+      ctx.fillStyle = 'rgba(236,235,228,0.55)'
+      ctx.strokeStyle = 'rgba(236,235,228,0.7)'
+      ctx.beginPath(); ip(ins.fc as unknown as GeoPermissibleObjects); ctx.fill(); ctx.stroke()
+      // islands are far smaller than a pixel at this scale: mark each one
+      ctx.fillStyle = 'rgba(236,235,228,0.85)'
+      for (const f of ins.fc.features) {
+        const g = f.geometry as unknown as { coordinates: number[][][][] }
+        for (const poly of g.coordinates) {
+          const c = ip.centroid({ type: 'Polygon', coordinates: poly } as GeoPermissibleObjects)
+          if (Number.isFinite(c[0])) { ctx.beginPath(); ctx.arc(c[0], c[1], 1.6, 0, Math.PI * 2); ctx.fill() }
+        }
+      }
+    }
+  }, [W, layout, values, vmax, cells, main])
+
+  const onMove = (e: React.PointerEvent<HTMLCanvasElement>) => {
+    const r = e.currentTarget.getBoundingClientRect()
+    const mx = e.clientX - r.left, my = e.clientY - r.top
+    let best = -1
+    for (let i = 0; i < layout.sq.length; i++) {
+      const q = layout.sq[i]
+      if (Math.abs(q.x - mx) <= q.s / 2 && Math.abs(q.y - my) <= q.s / 2) { best = i; break }
+    }
+    if (best < 0) return setHover(null)
+    const c = cells[best]
+    setHover({ x: layout.sq[best].x, y: layout.sq[best].y, c, v: values.get(`${c[1]},${c[2]}`) ?? 0 })
+  }
+
+  return (
+    <div ref={wrap} className="relative">
+      <canvas
+        ref={cvRef}
+        style={{ width: W, height: layout.H, opacity: dim ? 0.5 : 1 }}
+        className="block transition-opacity duration-300"
+        role="img"
+        aria-label="Map of Vietnam's provinces with harmonized fire-active cell-days per 10 km cell; insets for Hoàng Sa and Trường Sa"
+        onPointerMove={onMove}
+        onPointerLeave={() => setHover(null)}
+      />
+      {layout.insets.map((ins) => (
+        <div key={ins.name} className="pointer-events-none absolute font-mono text-[10px] leading-tight" style={{ left: ins.box[0][0], top: ins.box[1][1] + 4, width: ins.box[1][0] - ins.box[0][0] }}>
+          <div className="text-bone">{ins.name}</div>
+          <div className="text-bone-dim">({ins.fc.features[0].properties.name})</div>
+          <div className="text-muted">inset, not to scale</div>
+        </div>
+      ))}
+      {hover && (
+        <div className="pointer-events-none absolute z-10 whitespace-nowrap border border-line bg-ink/95 px-2.5 py-1.5 font-mono text-[11px] tabular-nums" style={{ left: Math.min(hover.x + 10, W - 190), top: hover.y + 10 }}>
+          <div className="text-bone">{hover.c[3]}</div>
+          <div className="text-muted">{hover.c[4]} · {fmtNum(hover.c[1], 2)}°N {fmtNum(hover.c[2], 2)}°E</div>
+          <div style={{ color: hover.v > 0 ? TRUST : AQUA }}>{hover.v > 0 ? `${fmtNum(hover.v, 2)} cell-days` : 'no detection'}</div>
+        </div>
+      )}
+    </div>
+  )
 }
