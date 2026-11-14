@@ -7,6 +7,7 @@ import { Harmonization } from './components/Harmonization'
 import { HarmonizedMap } from './components/HarmonizedMap'
 import { BurningCalendar } from './components/BurningCalendar'
 import { SeasonalTrends } from './components/SeasonalTrends'
+import { TrustLimits } from './components/TrustLimits'
 import { ThermalFooter } from './components/ThermalFooter'
 import { FireStripes } from '../shared/components/FireStripes'
 
@@ -43,6 +44,7 @@ export default function Home(props: Props) {
           <BurningCalendar />
           <HarmonizedMap />
         </div>
+        <TrustLimits />
       </main>
       <ThermalFooter />
     </div>

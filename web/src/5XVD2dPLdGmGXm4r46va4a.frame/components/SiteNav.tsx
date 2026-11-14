@@ -5,6 +5,7 @@ export const SECTIONS = [
   { label: 'Story', href: '#story' },
   { label: 'Method', href: '#method' },
   { label: 'Seasons', href: '#seasons' },
+  { label: 'Trust', href: '#trust' },
 ]
 
 export function Logo() {
