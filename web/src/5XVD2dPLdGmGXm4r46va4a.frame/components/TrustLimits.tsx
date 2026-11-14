@@ -97,14 +97,16 @@ function Validation({ t }: { t: Trust }) {
       <div className="mt-12 flex flex-wrap gap-x-6 gap-y-2 font-mono text-[11px]">
         {METHODS.map((m) => (
           <span key={m} className="flex items-center gap-2" style={{ color: METHOD_COLOR[m] }}>
-            <span className="inline-block h-2.5 w-2.5 rounded-full" style={{ background: METHOD_COLOR[m] }} />
-            {m}
+            <svg width={12} height={12} aria-hidden className="shrink-0">
+              <Mark m={m} x={6} y={6} />
+            </svg>
+            {m === 'raw VIIRS' ? 'raw VIIRS (off the axis, value at the edge)' : m}
           </span>
         ))}
       </div>
       <div className="mt-4 grid grid-cols-[minmax(0,1fr)] gap-10 lg:grid-cols-2 lg:gap-8">
-        <DotPanel t={t} regions={regions} metric="bias_pct" title="Bias vs Aqua, %" domain={[-40, 40]} zero />
-        <DotPanel t={t} regions={regions} metric="wMAPE_pct" title="Month-to-month error (wMAPE), %" domain={[0, 40]} />
+        <DotPanel t={t} regions={regions} metric="bias_pct" title="Bias vs Aqua, %" domain={[-30, 30]} ticks={[-20, -10, 0, 10, 20]} zero />
+        <DotPanel t={t} regions={regions} metric="wMAPE_pct" title="Month-to-month error (wMAPE), %" domain={[0, 35]} ticks={[0, 10, 20, 30]} />
       </div>
       <details className="group mt-8 border-t border-line pt-4">
         <summary className="cursor-pointer list-none font-mono text-[11px] text-bone-dim hover:text-bone">
@@ -118,14 +120,20 @@ function Validation({ t }: { t: Trust }) {
   )
 }
 
-/** One row per region, one dot per method; values beyond the axis are pinned to the edge with their value. */
-function DotPanel({ t, regions, metric, title, domain, zero }: { t: Trust; regions: string[]; metric: 'bias_pct' | 'wMAPE_pct'; title: string; domain: [number, number]; zero?: boolean }) {
+/** One mark per method: raw VIIRS a grey triangle, constant ratio a hollow circle, physics + calibration a filled circle. */
+function Mark({ m, x, y }: { m: ValidationMethod; x: number; y: number }) {
+  if (m === 'raw VIIRS') return <path d={`M${x - 4},${y - 5} L${x + 5},${y} L${x - 4},${y + 5} Z`} fill={METHOD_COLOR[m]} />
+  if (m === OURS) return <circle cx={x} cy={y} r={5.5} fill={TRUST} stroke="#080807" strokeWidth={1.5} />
+  return <circle cx={x} cy={y} r={4.5} fill="#080807" stroke={METHOD_COLOR[m]} strokeWidth={1.6} />
+}
+
+/** One row per region, one mark per method; values beyond the axis are pinned to the edge with their value. */
+function DotPanel({ t, regions, metric, title, domain, ticks, zero }: { t: Trust; regions: string[]; metric: 'bias_pct' | 'wMAPE_pct'; title: string; domain: [number, number]; ticks: number[]; zero?: boolean }) {
   const [ref, W] = useWidth()
   const lw = 104, rw = 64
   const rowH = 44
   const H = 30 + regions.length * rowH + 22
   const x = scaleLinear().domain(domain).range([lw, W - rw]).clamp(true)
-  const ticks = x.ticks(4)
   return (
     <div ref={ref}>
       <h3 className="font-mono text-[11px] text-bone-dim">{title}</h3>
@@ -144,15 +152,28 @@ function DotPanel({ t, regions, metric, title, domain, zero }: { t: Trust; regio
             <g key={reg}>
               <text x={0} y={y + 4} fontSize={12} fill={reg === 'Vietnam' ? AQUA : '#a9a8a0'} fontWeight={reg === 'Vietnam' ? 600 : 400} style={mono}>{reg}</text>
               <line x1={lw} x2={W - rw} y1={y} y2={y} stroke={GRID} strokeDasharray="1 3" />
-              {vals.filter((d) => d.v <= domain[1] && d.v >= domain[0]).map((d) => (
-                <g key={d.m}>
-                  <circle cx={x(d.v)} cy={y} r={d.m === OURS ? 6 : 5} fill={METHOD_COLOR[d.m]} stroke="#080807" strokeWidth={1.5} />
-                  {d.m === OURS && <text x={x(d.v)} y={y - 11} textAnchor="middle" fontSize={10} fill={TRUST} style={mono}>{metric === 'bias_pct' ? fmtPctSigned(d.v, 1) : fmtNum(d.v, 1)}</text>}
-                </g>
-              ))}
+              {/* hollow first, so the filled physics mark stays on top where the two meet */}
+              {vals
+                .filter((d) => d.v <= domain[1] && d.v >= domain[0])
+                .sort((a) => (a.m === OURS ? 1 : -1))
+                .map((d) => (
+                  <Mark key={d.m} m={d.m} x={x(d.v)} y={y} />
+                ))}
+              {vals
+                .filter((d) => d.m === OURS && d.v <= domain[1] && d.v >= domain[0])
+                .map((d) => {
+                  // the label sits above the mark and grows away from the zero line, never across it
+                  const right = !zero || d.v >= 0
+                  const lx = zero ? (right ? Math.max(x(d.v) - 4, x(0) + 4) : Math.min(x(d.v) + 4, x(0) - 4)) : x(d.v) - 4
+                  return (
+                    <text key={d.m} x={lx} y={y - 10} textAnchor={right ? 'start' : 'end'} fontSize={10} fill={TRUST} style={mono}>
+                      {metric === 'bias_pct' ? fmtPctSigned(d.v, 1) : fmtNum(d.v, 1)}
+                    </text>
+                  )
+                })}
               {off.map((d) => (
                 <g key={d.m}>
-                  <path d={`M${W - rw + 2},${y - 5} L${W - rw + 10},${y} L${W - rw + 2},${y + 5} Z`} fill={METHOD_COLOR[d.m]} />
+                  <Mark m={d.m} x={W - rw + 6} y={y} />
                   <text x={W - rw + 14} y={y + 4} fontSize={10} fill={METHOD_COLOR[d.m]} style={mono}>{metric === 'bias_pct' ? fmtPctSigned(d.v, 0) : fmtNum(d.v, 0)}</text>
                 </g>
               ))}
