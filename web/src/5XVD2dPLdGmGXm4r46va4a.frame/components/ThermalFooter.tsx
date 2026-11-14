@@ -1,6 +1,8 @@
 import React from 'react'
 
-import { Logo, SECTIONS } from './SiteNav'
+import { Link } from 'react-router-dom'
+
+import { Logo, PAGES } from './SiteNav'
 import { FireStripes } from '../../shared/components/FireStripes'
 import { DataValue } from '../../shared/components/DataStatus'
 import { fmtInt } from '../../shared/lib/format'
@@ -14,7 +16,7 @@ const TEAM: string[] = []
 export function ThermalFooter() {
   return (
     <footer className="border-t border-line">
-      <div className="mx-auto max-w-[1280px] px-5 pb-10 pt-24 md:px-10 md:pt-32">
+      <div className="mx-auto max-w-[1280px] px-5 pb-10 pt-20 md:px-10 md:pt-24">
         <p className="max-w-[30ch] text-[clamp(1.5rem,3vw,2.25rem)] font-medium leading-tight tracking-[-0.02em] text-bone">
           <DataValue file="national.json" pick={(d) => fmtInt(d.months.length)} /> months of Vietnam's fires, one sensor scale.
         </p>
@@ -25,17 +27,17 @@ export function ThermalFooter() {
             <Logo />
             <p className="mt-4 max-w-[44ch] text-bone-dim">
               NASA Space Apps Challenge 2026 · Harmonization of MODIS and VIIRS Hot Spots. Harmonized active-fire record
-              for Vietnam from NASA FIRMS (MODIS C6.1, VIIRS C2).
+              for Vietnam from NASA FIRMS (MODIS C6.1, VIIRS C2). Basemap © OpenFreeMap, © OpenMapTiles, data from OpenStreetMap.
             </p>
           </div>
           <div className="md:col-span-2">
-            <h3 className="font-mono text-[11px] text-muted">Sections</h3>
+            <h3 className="font-mono text-[11px] text-muted">Pages</h3>
             <ul className="mt-3 space-y-2">
-              {SECTIONS.map((s) => (
-                <li key={s.href}>
-                  <a href={s.href} className="text-bone-dim hover:text-bone">
+              {PAGES.map((s) => (
+                <li key={s.to}>
+                  <Link to={s.to} className="text-bone-dim hover:text-bone">
                     {s.label}
-                  </a>
+                  </Link>
                 </li>
               ))}
             </ul>

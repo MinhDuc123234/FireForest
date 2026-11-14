@@ -33,6 +33,8 @@ type Props = {
   stepRatio?: number
   height: number
   crosshair?: boolean
+  /** y-axis caption */
+  yLabel?: string
   ariaLabel: string
 }
 
@@ -78,7 +80,7 @@ function useTween(target: number) {
   return v
 }
 
-export function SeriesChart({ data, region, layers, yMax, calibEnd, stepRatio, height, crosshair, ariaLabel }: Props) {
+export function SeriesChart({ data, region, layers, yMax, calibEnd, stepRatio, height, crosshair, yLabel = 'cell-days / month', ariaLabel }: Props) {
   const uid = useId().replace(/:/g, '')
   const [wrap, width] = useWidth()
   const s = data.regions[region]
@@ -188,7 +190,7 @@ export function SeriesChart({ data, region, layers, yMax, calibEnd, stepRatio, h
           </g>
         ))}
         <text x={0} y={m.t - 14} className="fill-muted font-mono text-[10px]">
-          cell-days / month
+          {yLabel}
         </text>
         {yearTicks.map(({ mm, i }) => (
           <text key={mm} x={x(i)} y={height - 10} textAnchor="middle" className="fill-muted font-mono text-[10px] tabular-nums">

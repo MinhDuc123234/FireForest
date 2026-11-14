@@ -1,10 +1,8 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react'
+import React, { useEffect, useRef, useState } from 'react'
 
-import { OperatorDiagram } from '../../shared/components/OperatorDiagram'
-import { Segmented } from '../../shared/components/Segmented'
 import { SeriesChart, type Layers } from '../../shared/components/SeriesChart'
 import { SourceChip } from '../../shared/components/SourceChip'
-import { useData, type National, type Region } from '../../shared/data/load'
+import { useData, type National } from '../../shared/data/load'
 import { NAIVE, TRUST } from '../../shared/lib/colors'
 import { fmtInt, fmtMonth, fmtNum, fmtRatio, MONTHS_LONG } from '../../shared/lib/format'
 
@@ -14,12 +12,6 @@ const STEP_LAYERS: Layers[] = [
   { aquaPre: 1, aquaPost: 1, naive: 0.14, naiveReveal: 1, harm: 1, harmReveal: 1, markers: 1, jumpNote: 0 },
 ]
 
-type Mode = 'raw' | 'harmonized' | 'compare'
-const MODE_LAYERS: Record<Mode, Layers> = {
-  raw: { aquaPre: 1, aquaPost: 1, naive: 1, naiveReveal: 1, harm: 0, harmReveal: 1, markers: 1, jumpNote: 0 },
-  harmonized: { aquaPre: 1, aquaPost: 1, naive: 0, naiveReveal: 1, harm: 1, harmReveal: 1, markers: 1, jumpNote: 0 },
-  compare: { aquaPre: 1, aquaPost: 1, naive: 1, naiveReveal: 1, harm: 1, harmReveal: 1, markers: 1, jumpNote: 0 },
-}
 
 function peakBefore(d: National) {
   const s = d.regions.Vietnam.aqua_observed
@@ -68,7 +60,7 @@ export function Harmonization() {
       body: (
         <>
           Aqua MODIS is the only afternoon record. Burning peaks every dry season; the highest month,{' '}
-          {MONTHS_LONG[Number(peak.m.slice(5)) - 1]} {peak.m.slice(0, 4)}, reaches {fmtInt(peak.v)} fire-active 10 km cell-days.
+          {MONTHS_LONG[Number(peak.m.slice(5)) - 1]} {peak.m.slice(0, 4)}, counts {fmtInt(peak.v)} days with fire, summed over 10 km squares.
         </>
       ),
     },
@@ -103,8 +95,7 @@ export function Harmonization() {
   return (
     <section id="story" className="scroll-mt-20 border-t border-line">
       <div className="mx-auto max-w-[1280px] px-5 pt-24 md:px-10 md:pt-32">
-        <p className="font-mono text-[11px] text-muted">Story</p>
-        <h2 className="mt-3 max-w-[18ch] text-[clamp(2.25rem,5vw,4.25rem)] font-semibold leading-[0.95] tracking-[-0.035em]">
+        <h2 className="max-w-[18ch] text-[clamp(2.25rem,5vw,4.25rem)] font-semibold leading-[0.95] tracking-[-0.035em]">
           The 2012 jump that never happened
         </h2>
 
@@ -118,9 +109,10 @@ export function Harmonization() {
               calibEnd={calibEnd}
               stepRatio={k.headline.step.naive}
               height={isDesktop ? 440 : 230}
-              ariaLabel="Monthly fire-active 10 km cell-days in Vietnam: Aqua observed, naive splice and harmonized series"
+              yLabel="fire days / month"
+              ariaLabel="Monthly days with fire per 10 km square in Vietnam: Aqua observed, naive splice and harmonized series"
             />
-            <SourceChip csv="monthly_series.csv" className="mt-2" />
+            <SourceChip csv="monthly_series.csv" plain className="mt-2" />
           </div>
 
           <div className="relative min-w-0 lg:order-1 lg:col-span-4">
@@ -146,74 +138,6 @@ export function Harmonization() {
         </div>
       </div>
 
-      <ExploreSeries data={d} calibEnd={calibEnd} wmape={k.held_out.physics_calibration.wMAPE_pct} test={k.windows.test} />
-
-      <div className="mx-auto max-w-[1280px] px-5 pb-24 md:px-10 md:pb-32">
-        <h3 className="max-w-[44ch] text-2xl font-semibold tracking-tight">How a VIIRS fire becomes a MODIS-equivalent detection</h3>
-        <div className="mt-8">
-          <OperatorDiagram />
-        </div>
-      </div>
     </section>
-  )
-}
-
-function ExploreSeries({ data, calibEnd, wmape, test }: { data: National; calibEnd: number; wmape: number; test: [number, number] }) {
-  const [mode, setMode] = useState<Mode>('compare')
-  const [region, setRegion] = useState<Region>('Vietnam')
-  const layers = useMemo(() => MODE_LAYERS[mode], [mode])
-  return (
-    <div className="mx-auto max-w-[1280px] px-5 py-24 md:px-10">
-      <div className="flex flex-wrap items-end justify-between gap-4 border-t border-line pt-8">
-        <div>
-          <p className="font-mono text-[11px] text-muted">Story · explore</p>
-          <h3 className="mt-2 max-w-[30ch] text-2xl font-semibold tracking-tight">
-            Held-out, the harmonized months miss Aqua by {fmtNum(wmape, 1)}% on average
-          </h3>
-          <p className="mt-1 text-sm text-bone-dim">
-            Weighted mean absolute error, national, {test[0]}–{test[1]}. Any region; hover or drag for exact values.
-          </p>
-        </div>
-        <div className="flex flex-wrap items-center gap-3">
-          <label className="flex items-center gap-2 font-mono text-[11px] text-muted">
-            Region
-            <select
-              value={region}
-              onChange={(e) => setRegion(e.target.value as Region)}
-              className="border border-line bg-ink-2 px-2.5 py-1.5 font-sans text-sm text-bone [color-scheme:dark] focus:border-bone-dim focus:outline-none"
-            >
-              {data.meta.regions.map((r) => (
-                <option key={r} value={r}>
-                  {r}
-                </option>
-              ))}
-            </select>
-          </label>
-          <Segmented<Mode>
-            size="sm"
-            label="Series"
-            value={mode}
-            onChange={setMode}
-            options={[
-              { value: 'raw', label: 'Raw' },
-              { value: 'harmonized', label: 'Harmonized' },
-              { value: 'compare', label: 'Compare' },
-            ]}
-          />
-        </div>
-      </div>
-      <div className="mt-6">
-        <SeriesChart
-          data={data}
-          region={region}
-          layers={layers}
-          calibEnd={calibEnd}
-          height={360}
-          crosshair
-          ariaLabel={`Monthly fire-active 10 km cell-days, ${region}`}
-        />
-        <SourceChip csv="monthly_series.csv" className="mt-2" extra={region} />
-      </div>
-    </div>
   )
 }

@@ -52,7 +52,7 @@ export function FireStripes({ height = 48, className = '' }: { height?: number; 
             className="pointer-events-none absolute -top-8 whitespace-nowrap border border-line bg-ink px-2 py-1 font-mono text-[10px] text-bone"
             style={{ left: `${(hover! / n) * 100}%`, transform: `translateX(${hover! / n > 0.85 ? '-100%' : '-50%'})` }}
           >
-            {fmtMonth(h.m)} · {h.v === null ? 'no data' : `${fmtNum(h.v, 0)} cell-days`}
+            {fmtMonth(h.m)} · {h.v === null ? 'no data' : `${fmtNum(h.v, 0)} fire days`}
           </div>
         )}
       </div>
@@ -60,7 +60,7 @@ export function FireStripes({ height = 48, className = '' }: { height?: number; 
         <span className="font-mono text-[10px] text-muted">
           {data.months[0].slice(0, 4)} → {data.months[n - 1].slice(0, 4)} · one stripe per month, Vietnam, harmonized
         </span>
-        <SourceChip csv="monthly_series.csv" />
+        <SourceChip csv="monthly_series.csv" plain />
       </figcaption>
     </figure>
   )
