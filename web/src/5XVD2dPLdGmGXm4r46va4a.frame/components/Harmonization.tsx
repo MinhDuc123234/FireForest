@@ -94,14 +94,14 @@ export function Harmonization() {
 
   return (
     <section id="story" className="scroll-mt-20 border-t border-line">
-      <div className="mx-auto max-w-[1280px] px-5 pt-24 md:px-10 md:pt-32">
+      <div className="mx-auto max-w-[1280px] px-5 pb-8 pt-20 md:px-10 md:pt-28">
         <h2 className="max-w-[18ch] text-[clamp(2.25rem,5vw,4.25rem)] font-semibold leading-[0.95] tracking-[-0.035em]">
           The 2012 jump that never happened
         </h2>
 
-        <div className="mt-12 grid grid-cols-[minmax(0,1fr)] lg:mt-16 lg:grid-cols-12 lg:gap-8">
+        <div className="mt-8 grid grid-cols-[minmax(0,1fr)] lg:mt-6 lg:grid-cols-12 lg:gap-8">
           {/* sticky chart: right on desktop, on top on mobile */}
-          <div className="sticky top-[94px] z-10 -mx-5 min-w-0 border-b border-line bg-ink px-5 pb-3 pt-2 lg:border-0 lg:order-2 lg:col-span-8 lg:mx-0 lg:h-[calc(100vh-7rem)] lg:px-0 lg:pt-0 lg:top-24 lg:flex lg:flex-col lg:justify-center">
+          <div className="sticky top-14 z-10 -mx-5 min-w-0 border-b border-line bg-ink px-5 pb-3 pt-2 lg:border-0 lg:order-2 lg:col-span-8 lg:mx-0 lg:self-start lg:px-0 lg:pt-6 lg:top-20">
             <SeriesChart
               data={d}
               region="Vietnam"
@@ -123,7 +123,9 @@ export function Harmonization() {
                   stepRefs.current[i] = el
                 }}
                 data-step={i}
-                className="flex min-h-[75vh] items-end pb-[18vh] lg:min-h-[90vh] lg:items-center lg:py-10"
+                className={`flex items-end pb-[16vh] lg:pb-0 ${
+                  i === 0 ? 'min-h-[52vh] lg:min-h-[64vh] lg:items-start lg:pt-16' : i === steps.length - 1 ? 'min-h-[70vh] lg:min-h-[72vh] lg:items-center' : 'min-h-[75vh] lg:min-h-[84vh] lg:items-center'
+                }`}
               >
                 <div className={`max-w-[42ch] transition-opacity duration-500 ${step === i ? 'opacity-100' : 'opacity-30'}`}>
                   <p className="font-mono text-[11px] text-muted">

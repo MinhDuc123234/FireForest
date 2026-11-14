@@ -30,7 +30,7 @@ export function TrustTeaser() {
   const big = 'text-[clamp(2.5rem,5.2vw,4.5rem)] font-semibold leading-none tracking-[-0.03em] tabular-nums'
   return (
     <section className="border-t border-line">
-      <div className="mx-auto max-w-[1280px] px-5 py-24 md:px-10 md:py-32">
+      <div className="mx-auto max-w-[1280px] px-5 pb-16 pt-24 md:px-10 md:pb-20 md:pt-28">
         <h2 className="max-w-[14ch] text-[clamp(2.25rem,5vw,4.25rem)] font-semibold leading-[0.95] tracking-[-0.035em]">Why you can trust it</h2>
         <dl className="mt-14 grid border-y border-line md:grid-cols-3">
           <div className="py-8 md:pr-8">
