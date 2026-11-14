@@ -43,3 +43,10 @@ The grid exists only from 2012-02 (VIIRS era) and carries point estimates only; 
 national series carry the 95% bootstrap band.
 
 Front-end access goes through `src/shared/data/load.ts` (typed loaders, cache, `useData` hook).
+
+### Raw CSV copies (pending)
+
+`public/data/monthly_series.csv` (123 KB) and `public/data/grid10km_monthly_harmonized.csv` (8.6 MB)
+are verbatim copies of the `out/` files added in commit 3ba58e2. The burning calendar and the
+Vietnam map are being moved to `national.json` and `grid/<YYYY>.json`; whether to keep these copies
+is still open.
