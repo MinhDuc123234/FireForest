@@ -33,8 +33,7 @@ export function ThermalFooter() {
             <Logo />
             <p className="mt-4 max-w-[44ch] text-bone-dim">
               NASA Space Apps Challenge 2026 · Harmonization of MODIS and VIIRS Hot Spots. Harmonized active-fire record
-              for Vietnam from NASA FIRMS (MODIS C6.1, VIIRS C2). Basemap © OpenFreeMap, © OpenMapTiles, data from OpenStreetMap;
-              terrain from Mapzen Terrain Tiles on AWS Open Data.
+              for Vietnam from NASA FIRMS (MODIS C6.1, VIIRS C2).
             </p>
           </div>
           <div className="md:col-span-2">
@@ -80,6 +79,10 @@ export function ThermalFooter() {
             </div>
           )}
         </div>
+        <p className="mt-10 border-t border-line pt-4 font-mono text-[10px] leading-relaxed text-muted">
+          Fires: NASA FIRMS · provinces: geoBoundaries · basemap © OpenFreeMap © OpenMapTiles © OpenStreetMap · terrain: Mapzen Terrain
+          Tiles, AWS Open Data
+        </p>
       </div>
     </footer>
   )

@@ -95,7 +95,7 @@ export function Harmonization() {
   return (
     <section id="story" className="scroll-mt-20 border-t border-line">
       <div className="mx-auto max-w-[1280px] px-5 pb-8 pt-20 md:px-10 md:pt-28">
-        <h2 className="max-w-[18ch] text-[clamp(2.25rem,5vw,4.25rem)] font-semibold leading-[0.95] tracking-[-0.035em]">
+        <h2 className="max-w-[24ch] text-[clamp(1.75rem,3vw,2.5rem)] font-semibold leading-[1.02] tracking-[-0.03em]">
           The 2012 jump that never happened
         </h2>
 

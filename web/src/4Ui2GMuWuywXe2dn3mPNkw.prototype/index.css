@@ -87,3 +87,17 @@ html {
 *::-webkit-scrollbar-track { background: transparent; }
 *::-webkit-scrollbar-thumb { background: #2a2a26; }
 *::-webkit-scrollbar-thumb:hover { background: #3a3a35; }
+
+/* selects: no browser chevron, a thin one of ours */
+select {
+  appearance: none;
+  -webkit-appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='%23a9a8a0' stroke-width='1.2'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 8px center;
+  background-size: 9px 6px;
+  padding-right: 24px !important;
+  cursor: pointer;
+}
+select:hover { border-color: #3a3a35; }
+select option { background: #11110f; color: #ecebe4; }

@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from 'react'
 
-import { inferno } from '../lib/colors'
+import { fire } from '../lib/colors'
 import { fmtMonth, fmtNum } from '../lib/format'
 import { useData } from '../data/load'
 import { SourceChip } from './SourceChip'
@@ -41,7 +41,7 @@ export function FireStripes({ height = 48, className = '' }: { height?: number; 
               y={0}
               width={1.02}
               height={1}
-              fill={x === null ? '#141412' : inferno(Math.sqrt(x / data.max))}
+              fill={x === null ? '#141412' : fire(0.05 + 0.95 * Math.sqrt(x / data.max))}
               onMouseEnter={() => setHover(i)}
             />
           ))}

@@ -108,18 +108,18 @@ export function Hero({ title, subtitle }: Props) {
       {/* HUD + year control */}
       {ready && (
         <div ref={hud} className="absolute inset-x-0 bottom-0 border-t border-line/70 bg-ink/80">
-          <div className="mx-auto flex max-w-[1280px] flex-wrap items-center gap-x-5 gap-y-2 px-5 py-2.5 md:px-10">
-            <p className="font-mono text-[11px] tabular-nums text-bone">
+          <div className="mx-auto flex max-w-[1280px] flex-wrap items-center gap-x-5 gap-y-2 px-5 py-2.5 md:px-10 xl:flex-nowrap">
+            <p className="shrink-0 font-mono text-[11px] tabular-nums text-bone">
               March {year} · {fmtInt(active)} squares with fire
               {pass !== undefined && <span className="text-bone-dim"> · Aqua pass {hhmm(pass)} local</span>}
-              <span className="hidden text-muted xl:inline"> · point estimate · NASA FIRMS</span>
+              <span className="hidden text-muted 2xl:inline"> · NASA FIRMS</span>
             </p>
             {year !== undefined && year > calibEnd && (
               <span className="whitespace-nowrap px-1.5 py-0.5 font-mono text-[10px]" style={{ color: WARN, background: 'rgba(255,176,32,0.12)' }}>
-                Aqua drift after {calibEnd} · extrapolated
+                satellite drift after {calibEnd} · estimated
               </span>
             )}
-            <div className="flex min-w-[220px] flex-1 items-center gap-3">
+            <div className="flex min-w-[200px] flex-1 items-center gap-3">
               <button
                 type="button"
                 onClick={() => setPlaying((p) => !p)}
@@ -149,7 +149,7 @@ export function Hero({ title, subtitle }: Props) {
               />
               <span className="font-mono text-[10px] tabular-nums text-muted">{march.data.years[march.data.years.length - 1]}</span>
             </div>
-            <MapLegend vmax={grid.data.meta.max_monthly} className="hidden w-52 shrink-0 lg:block" />
+            <MapLegend vmax={grid.data.meta.max_monthly} className="hidden w-48 shrink-0 xl:block" />
           </div>
         </div>
       )}

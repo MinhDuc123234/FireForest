@@ -2,9 +2,10 @@ import React, { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { scaleLinear } from 'd3-scale'
 
+import { Segmented } from '../../shared/components/Segmented'
 import { SourceChip } from '../../shared/components/SourceChip'
 import { useData, type Region, type SeasonalRow } from '../../shared/data/load'
-import { AQUA, GRID, inferno } from '../../shared/lib/colors'
+import { AQUA, GRID, fire } from '../../shared/lib/colors'
 import { MONTHS, MONTHS_LONG, fmtInt, fmtMonth, fmtNum } from '../../shared/lib/format'
 import { useWidth } from '../../shared/lib/useWidth'
 
@@ -29,7 +30,7 @@ export function SeasonalTrends() {
       <div className="mx-auto max-w-[1280px] px-5 py-24 md:px-10 md:py-32">
         <div className="grid gap-8 lg:grid-cols-12 lg:items-end lg:gap-8">
           <div className="lg:col-span-7">
-            <h2 className="max-w-[14ch] text-[clamp(2.25rem,5vw,4.25rem)] font-semibold leading-[0.95] tracking-[-0.035em]">
+            <h2 className="max-w-[20ch] text-[clamp(1.75rem,3vw,2.5rem)] font-semibold leading-[1.02] tracking-[-0.03em]">
               Where and when Vietnam burns
             </h2>
             <p className="mt-5 max-w-[34ch] text-[clamp(1.25rem,2vw,1.5rem)] font-medium leading-snug text-bone">
@@ -48,21 +49,8 @@ export function SeasonalTrends() {
           </div>
         </div>
 
-        <div className="mt-12 flex flex-wrap gap-1" role="radiogroup" aria-label="Region">
-          {regions.map((r) => (
-            <button
-              key={r}
-              type="button"
-              role="radio"
-              aria-checked={r === region}
-              onClick={() => setRegion(r)}
-              className={`border px-3 py-1.5 font-mono text-[11px] transition-colors duration-150 focus-visible:outline focus-visible:outline-2 focus-visible:outline-ember ${
-                r === region ? 'border-bone bg-bone text-ink' : 'border-line text-bone-dim hover:border-bone-dim hover:text-bone'
-              }`}
-            >
-              {r}
-            </button>
-          ))}
+        <div className="mt-10 max-w-full overflow-hidden">
+          <Segmented<Region> size="sm" label="Region" value={region} onChange={setRegion} options={regions.map((r) => ({ value: r, label: r }))} wrap />
         </div>
         <MonthColumns rows={rows} region={region} />
         <SourceChip csv="seasonal_calendar.csv" plain className="mt-3" extra={`${region} · mean of full years, 10th–90th percentile`} />
@@ -97,7 +85,7 @@ function MonthColumns({ rows, region }: { rows: SeasonalRow[]; region: Region })
           return (
             <g key={r.cal_month}>
               <title>{`${MONTHS_LONG[r.cal_month - 1]}: mean ${fmtNum(r.mean, 0)}, 10th–90th percentile ${fmtNum(r.p10, 0)}–${fmtNum(r.p90, 0)} fire days · ${fmtNum(r.share_of_year_pct, 1)}% of the year`}</title>
-              <rect x={cx - bw / 2} y={y(r.mean)} width={bw} height={y(0) - y(r.mean)} fill={inferno(0.18 + 0.82 * Math.sqrt(r.mean / maxMean))} />
+              <rect x={cx - bw / 2} y={y(r.mean)} width={bw} height={y(0) - y(r.mean)} fill={fire(0.18 + 0.82 * Math.sqrt(r.mean / maxMean))} />
               <line x1={cx} x2={cx} y1={y(r.p10)} y2={y(r.p90)} stroke={AQUA} strokeWidth={1.4} />
               <line x1={cx - 4} x2={cx + 4} y1={y(r.p10)} y2={y(r.p10)} stroke={AQUA} strokeWidth={1.2} />
               <line x1={cx - 4} x2={cx + 4} y1={y(r.p90)} y2={y(r.p90)} stroke={AQUA} strokeWidth={1.2} />

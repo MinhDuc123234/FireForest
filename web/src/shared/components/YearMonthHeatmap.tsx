@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from 'react'
 
-import { AQUA, WARN, inferno } from '../lib/colors'
+import { AQUA, WARN, fire } from '../lib/colors'
 import { MONTHS, MONTHS_LONG, fmtMonth, fmtNum } from '../lib/format'
 import type { BandRow } from './BandChart'
 
@@ -53,7 +53,7 @@ export function YearMonthHeatmap({ rows, current, selectableFrom, viirsStart, on
                   onClick={() => onPick?.(key)}
                   className={`relative h-[14px] min-w-0 transition-opacity duration-150 focus-visible:outline focus-visible:outline-2 focus-visible:outline-ember sm:h-[16px] ${dim ? 'opacity-30' : 'opacity-100'} ${can ? 'cursor-pointer' : 'cursor-default'}`}
                   style={{
-                    backgroundColor: inferno(0.08 + 0.92 * Math.sqrt(r.v / max)),
+                    backgroundColor: fire(0.08 + 0.92 * Math.sqrt(r.v / max)),
                     boxShadow: key === current ? `0 0 0 2px ${AQUA}` : r.anomaly ? `inset 0 0 0 1.5px ${r.anomaly === 'high' ? AQUA : '#75746d'}` : undefined,
                     backgroundImage: r.gap ? `repeating-linear-gradient(45deg, transparent 0 3px, ${WARN} 3px 4px)` : undefined,
                     zIndex: key === current ? 1 : undefined,

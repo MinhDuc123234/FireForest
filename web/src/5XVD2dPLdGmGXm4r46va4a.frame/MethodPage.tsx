@@ -164,7 +164,7 @@ export default function MethodPage() {
 
       <section className="mx-auto mt-10 max-w-[1280px] px-5 md:px-10 lg:mt-4">
         <div className="grid grid-cols-[minmax(0,1fr)] lg:grid-cols-12 lg:gap-8">
-          <div className="sticky top-14 z-10 -mx-5 min-w-0 border-b border-line bg-ink px-5 py-3 lg:order-2 lg:col-span-7 lg:mx-0 lg:flex lg:h-[calc(100vh-3.5rem)] lg:items-center lg:border-0 lg:px-0 lg:py-0">
+          <div className="sticky top-14 z-10 -mx-5 min-w-0 border-b border-line bg-ink px-5 py-3 lg:order-2 lg:col-span-7 lg:mx-0 lg:top-20 lg:self-start lg:border-0 lg:px-0 lg:py-6">
             <Figure ctx={ctx} step={step} />
           </div>
           <div className="min-w-0 lg:order-1 lg:col-span-5">
@@ -175,7 +175,7 @@ export default function MethodPage() {
                   refs.current[i] = el
                 }}
                 data-step={i}
-                className="flex min-h-[70vh] items-end pb-[16vh] lg:min-h-[86vh] lg:items-center lg:pb-0"
+                className={`flex items-end pb-[16vh] lg:pb-0 ${i === 0 ? 'min-h-[52vh] lg:min-h-[64vh] lg:items-start lg:pt-10' : i === STEPS.length - 1 ? 'min-h-[66vh] lg:min-h-[70vh] lg:items-center' : 'min-h-[70vh] lg:min-h-[80vh] lg:items-center'}`}
               >
                 <div className={`max-w-[44ch] transition-opacity duration-500 ${step === i ? 'opacity-100' : 'opacity-30'}`}>
                   <p className="font-mono text-[11px] tabular-nums text-muted">

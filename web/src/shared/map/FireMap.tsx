@@ -306,11 +306,11 @@ export function FireMap({ grid, geo, values, vmax, variant, monthLabel, focus, o
 
 /** Fire-day legend for the map (√ scale on a fixed maximum). */
 export function MapLegend({ vmax, className = '' }: { vmax: number; className?: string }) {
-  const ticks = [1, 4, 9].filter((t) => t < vmax)
+  const ticks = [1, 4, 9].filter((t) => Math.sqrt(t / vmax) < 0.8)
   return (
     <div className={`font-mono text-[10px] text-muted ${className}`}>
       <div className="mb-1 flex justify-between gap-2 whitespace-nowrap">
-        <span className="text-bone-dim">fire days / 10 km square</span>
+        <span className="text-bone-dim">fire days per square</span>
         <span>√ · &lt;{DRAW_MIN} hidden</span>
       </div>
       <div className="h-1.5" style={{ background: `linear-gradient(90deg, ${Array.from({ length: 9 }, (_, i) => fire(0.1 + (0.9 * i) / 8)).join(',')})` }} />

@@ -150,7 +150,7 @@ export default function Explore() {
         {ready && (
           <div className="pointer-events-none absolute left-14 top-3 flex max-w-[calc(100%-4.5rem)] flex-wrap items-center gap-x-3 gap-y-1.5 lg:max-w-[calc(100%-26rem)]">
             <p className="border border-line bg-ink/85 px-2.5 py-1 font-mono text-[11px] tabular-nums text-bone">
-              {fmtMonth(month)} · {fmtInt(stats.active)} squares with fire · {fmtInt(stats.total)} fire days
+              {fmtMonth(month)} · {fmtInt(stats.active)} squares<span className="hidden sm:inline"> with fire</span> · {fmtInt(stats.total)} fire days
               <span className="hidden text-muted sm:inline"> · point estimate · NASA FIRMS</span>
             </p>
             {drift && (

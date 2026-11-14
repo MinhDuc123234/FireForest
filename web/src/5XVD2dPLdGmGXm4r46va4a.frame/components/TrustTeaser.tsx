@@ -31,8 +31,8 @@ export function TrustTeaser() {
   return (
     <section className="border-t border-line">
       <div className="mx-auto max-w-[1280px] px-5 pb-16 pt-24 md:px-10 md:pb-20 md:pt-28">
-        <h2 className="max-w-[14ch] text-[clamp(2.25rem,5vw,4.25rem)] font-semibold leading-[0.95] tracking-[-0.035em]">Why you can trust it</h2>
-        <dl className="mt-14 grid border-y border-line md:grid-cols-3">
+        <h2 className="max-w-[20ch] text-[clamp(1.75rem,3vw,2.5rem)] font-semibold leading-[1.02] tracking-[-0.03em]">Why you can trust it</h2>
+        <dl className="mt-10 grid border-y border-line md:grid-cols-3">
           <div className="py-8 md:pr-8">
             <dd className={big}>
               <span className="text-[0.5em] font-medium" style={{ color: NAIVE }}>

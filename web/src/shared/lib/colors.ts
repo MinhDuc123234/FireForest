@@ -2,7 +2,7 @@ import { scaleLinear } from 'd3-scale'
 
 /**
  * Colour roles (one meaning each):
- *  - INFERNO: fire intensity only
+ *  - FIRE:    fire intensity only (deep red -> pale yellow, no purple); INFERNO kept for reference
  *  - ACTION:  buttons / interactive accent
  *  - TRUST:   the harmonized series (our result)
  *  - NAIVE:   naive splice (grey, dashed) - never red/orange so it is not read as intensity
