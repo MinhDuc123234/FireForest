@@ -134,7 +134,7 @@ export function SeriesChart({ data, region, layers, yMax, calibEnd, stepRatio, h
   ].filter(Boolean) as { k: string; v: number | null; c: string }[]
   const placed = ends
     .filter((e) => e.v !== null)
-    .map((e) => ({ ...e, py: Math.max(m.t, Math.min(height - m.b, y(e.v as number))) }))
+    .map((e) => ({ ...e, py: Math.max(m.t, Math.min(height - m.b, y(e.v as number))), px: e.k === 'Aqua observed' && layers.aquaPost < 0.5 ? x(vi - 1) + 8 : width - m.r + 8 }))
     .sort((a, b) => a.py - b.py)
   for (let i = 1; i < placed.length; i++) if (placed[i].py - placed[i - 1].py < 13) placed[i].py = placed[i - 1].py + 13
 
@@ -208,7 +208,7 @@ export function SeriesChart({ data, region, layers, yMax, calibEnd, stepRatio, h
           )}
           {gaps.map((i) => (
             <g key={i}>
-              <line x1={x(i)} x2={x(i)} y1={m.t + 34} y2={height - m.b} stroke={WARN} strokeDasharray="2 3" strokeWidth={1} />
+              <line x1={x(i)} x2={x(i)} y1={narrow ? height - m.b - 24 : m.t + 34} y2={height - m.b} stroke={WARN} strokeOpacity={narrow ? 0.7 : 1} strokeDasharray="2 3" strokeWidth={1} />
               {!narrow && (
                 <text x={x(i)} y={m.t + 28} textAnchor="middle" className="font-mono text-[9px]" fill={WARN}>
                   gap
@@ -254,7 +254,7 @@ export function SeriesChart({ data, region, layers, yMax, calibEnd, stepRatio, h
         {/* direct end labels */}
         {!narrow &&
           placed.map((p) => (
-            <text key={p.k} x={width - m.r + 8} y={p.py + 3} className="font-mono text-[10px]" fill={p.c}>
+            <text key={p.k} x={p.px} y={p.py + 3} className="font-mono text-[10px]" fill={p.c}>
               {p.k}
             </text>
           ))}

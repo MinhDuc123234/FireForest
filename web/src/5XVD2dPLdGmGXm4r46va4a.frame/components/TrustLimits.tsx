@@ -23,7 +23,7 @@ export function TrustLimits() {
   return (
     <section id="trust" className="scroll-mt-20 border-t border-line">
       <div className="mx-auto max-w-[1280px] px-5 py-24 md:px-10 md:py-32">
-        <p className="font-mono text-[11px] text-muted">Trust &amp; limits</p>
+        <p className="font-mono text-[11px] text-muted">Trust</p>
         <Validation t={t} />
         <div className="mt-20 grid gap-16 lg:grid-cols-12 lg:gap-8">
           <div className="min-w-0 lg:col-span-7">

@@ -97,7 +97,8 @@ export function Methodology() {
   return (
     <section id="method" className="scroll-mt-20 border-t border-line">
       <div className="mx-auto max-w-[1280px] px-5 py-24 md:px-10 md:py-32">
-        <div className="grid gap-6 lg:grid-cols-12 lg:items-end lg:gap-8">
+        <p className="font-mono text-[11px] text-muted">Method</p>
+        <div className="mt-3 grid gap-6 lg:grid-cols-12 lg:items-end lg:gap-8">
           <h2 className="text-[clamp(2.25rem,5vw,4.25rem)] font-semibold leading-[0.95] tracking-[-0.035em] lg:col-span-7">
             Would MODIS have seen it?
           </h2>

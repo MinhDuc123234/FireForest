@@ -146,7 +146,7 @@ export function Harmonization() {
         </div>
       </div>
 
-      <ExploreSeries data={d} calibEnd={calibEnd} />
+      <ExploreSeries data={d} calibEnd={calibEnd} wmape={k.held_out.physics_calibration.wMAPE_pct} test={k.windows.test} />
 
       <div className="mx-auto max-w-[1280px] px-5 pb-24 md:px-10 md:pb-32">
         <h3 className="max-w-[44ch] text-2xl font-semibold tracking-tight">How a VIIRS fire becomes a MODIS-equivalent detection</h3>
@@ -158,7 +158,7 @@ export function Harmonization() {
   )
 }
 
-function ExploreSeries({ data, calibEnd }: { data: National; calibEnd: number }) {
+function ExploreSeries({ data, calibEnd, wmape, test }: { data: National; calibEnd: number; wmape: number; test: [number, number] }) {
   const [mode, setMode] = useState<Mode>('compare')
   const [region, setRegion] = useState<Region>('Vietnam')
   const layers = useMemo(() => MODE_LAYERS[mode], [mode])
@@ -166,8 +166,13 @@ function ExploreSeries({ data, calibEnd }: { data: National; calibEnd: number })
     <div className="mx-auto max-w-[1280px] px-5 py-24 md:px-10">
       <div className="flex flex-wrap items-end justify-between gap-4 border-t border-line pt-8">
         <div>
-          <h3 className="text-2xl font-semibold tracking-tight">Explore the series</h3>
-          <p className="mt-1 text-sm text-bone-dim">Monthly totals by region. Hover for exact values.</p>
+          <p className="font-mono text-[11px] text-muted">Story · explore</p>
+          <h3 className="mt-2 max-w-[30ch] text-2xl font-semibold tracking-tight">
+            Held-out, the harmonized months miss Aqua by {fmtNum(wmape, 1)}% on average
+          </h3>
+          <p className="mt-1 text-sm text-bone-dim">
+            Weighted mean absolute error, national, {test[0]}–{test[1]}. Any region; hover or drag for exact values.
+          </p>
         </div>
         <div className="flex flex-wrap items-center gap-3">
           <label className="flex items-center gap-2 font-mono text-[11px] text-muted">

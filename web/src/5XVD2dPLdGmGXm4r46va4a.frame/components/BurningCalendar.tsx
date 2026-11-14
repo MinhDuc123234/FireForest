@@ -91,7 +91,7 @@ export function BurningCalendar() {
   return (
     <section id="calendar" className="scroll-mt-20 border-t border-line">
       <div className="mx-auto max-w-[1280px] px-5 py-24 md:px-10 md:py-32">
-        <p className="font-mono text-[11px] text-muted">Burning calendar</p>
+        <p className="font-mono text-[11px] text-muted">Seasons · calendar</p>
         <div className="mt-3 grid gap-8 lg:grid-cols-12 lg:items-end lg:gap-8">
           <div className="lg:col-span-7">
             <h2 className="max-w-[16ch] text-[clamp(2.25rem,5vw,4.25rem)] font-semibold leading-[0.95] tracking-[-0.035em]">

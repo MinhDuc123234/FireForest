@@ -95,7 +95,7 @@ export function HarmonizedMap() {
   return (
     <section id="data-map" className="scroll-mt-20 border-t border-line">
       <div className="mx-auto max-w-[1280px] px-5 py-24 md:px-10 md:py-32">
-        <p className="font-mono text-[11px] text-muted">Where</p>
+        <p className="font-mono text-[11px] text-muted">Seasons · map</p>
         <div className="mt-3 grid gap-6 lg:grid-cols-12 lg:items-end lg:gap-8">
           <h2 className="max-w-[16ch] text-[clamp(2.25rem,5vw,4.25rem)] font-semibold leading-[0.95] tracking-[-0.035em] lg:col-span-7">
             {fmtInt(cells.length)} cells, 10 km each
@@ -149,7 +149,7 @@ export function HarmonizedMap() {
                 <li key={p} className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 text-sm">
                   <span className="truncate text-bone">{p}</span>
                   <span className="font-mono text-[11px] tabular-nums text-bone-dim">{fmtNum(v, 0)}</span>
-                  <span className="col-span-2 h-1 bg-line"><span className="block h-full" style={{ width: `${(v / top[0][1]) * 100}%`, background: inferno(0.75) }} /></span>
+                  <span className="col-span-2 h-1 bg-line"><span className="block h-full bg-bone-dim" style={{ width: `${(v / top[0][1]) * 100}%` }} /></span>
                 </li>
               ))}
             </ol>

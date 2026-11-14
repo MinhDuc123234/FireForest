@@ -28,6 +28,7 @@ export function FilterGlyph() {
         <circle key={i} cx={206 + (i % 5) * 13} cy={16 + Math.floor(i / 5) * 15} r={3} fill={INFERNO[3]} />
       ))}
       <text x={206} y={68} className="font-mono text-[9px]" fill={MUTED}>kept</text>
+      <text x={14} y={68} className="font-mono text-[9px]" fill={MUTED}>schematic</text>
     </svg>
   )
 }
