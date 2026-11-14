@@ -6,6 +6,8 @@
 import { useEffect, useState } from 'react'
 
 export const UNIT = 'fire-active 10 km cell-days'
+/** The same unit in plain words (home page). */
+export const UNIT_PLAIN = 'days with fire per 10 km square'
 
 export type Region = 'Vietnam' | 'South' | 'Central' | 'North-Central' | 'North'
 export type MacroRegion = Exclude<Region, 'Vietnam'>
@@ -71,7 +73,18 @@ export type GridYear = { meta: Meta & { year: number; columns: string[] }; rows:
 /** [cell10, lat, lon, province, region, mean_monthly, total] */
 export type GridCell = [number, number, number, string, MacroRegion, number, number]
 export type GridCells = {
-  meta: Meta & { first_month: string; last_month: string; n_months: number; n_cells: number; columns: string[] }
+  meta: Meta & {
+    first_month: string
+    last_month: string
+    n_months: number
+    n_cells: number
+    columns: string[]
+    /** largest single cell-month value (fixed colour domain) */
+    max_monthly: number
+    cell_km: number
+    /** KM_DEG of harmonize_fire_v2.py */
+    km_per_degree: number
+  }
   cells: GridCell[]
 }
 export type GridMarch = { meta: Meta & { years: number[] }; years: number[]; values: number[][] }
@@ -137,6 +150,8 @@ export type Method = {
   sha256: string
   lines: number
   docstring: string
+  /** module docstring, line by line, with source line numbers */
+  docstring_lines: { line: number; text: string }[]
   constants: Record<string, { value: unknown; source: string; line: number; comment?: string }>
   functions: {
     name: string

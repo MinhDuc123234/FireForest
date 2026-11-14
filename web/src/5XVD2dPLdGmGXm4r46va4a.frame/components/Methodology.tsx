@@ -95,13 +95,13 @@ export function Methodology() {
       : null
   if ([method, trust, nat, kpi].some((s) => s.status === 'error')) return null
   return (
-    <section id="method" className="scroll-mt-20 border-t border-line">
-      <div className="mx-auto max-w-[1280px] px-5 py-24 md:px-10 md:py-32">
+    <section>
+      <div className="mx-auto max-w-[1280px] px-5 pb-24 pt-16 md:px-10 md:pb-32 md:pt-24">
         <p className="font-mono text-[11px] text-muted">Method</p>
         <div className="mt-3 grid gap-6 lg:grid-cols-12 lg:items-end lg:gap-8">
-          <h2 className="text-[clamp(2.25rem,5vw,4.25rem)] font-semibold leading-[0.95] tracking-[-0.035em] lg:col-span-7">
+          <h1 className="text-[clamp(2.5rem,6vw,5rem)] font-semibold leading-[0.92] tracking-[-0.04em] lg:col-span-7">
             Would MODIS have seen it?
-          </h2>
+          </h1>
           <p className="max-w-[52ch] text-bone-dim lg:col-span-5">
             For every VIIRS fire, the pipeline estimates the chance that Aqua MODIS, passing the same afternoon, would
             have detected it. Five steps, each a function in <code className="font-mono text-[0.9em] text-bone">harmonize_fire_v2.py</code>.

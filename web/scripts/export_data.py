@@ -252,6 +252,13 @@ def parse_pipeline(path):
     src = path.read_text(encoding="utf-8")
     tree = ast.parse(src)
     doc = ast.get_docstring(tree, clean=True)
+    # the module docstring line by line, with its line numbers in the source (for verbatim quotes)
+    dnode = tree.body[0]
+    doc_lines = []
+    if isinstance(dnode, ast.Expr) and isinstance(getattr(dnode, "value", None), ast.Constant):
+        for ln in range(dnode.lineno, dnode.end_lineno + 1):
+            txt = src.splitlines()[ln - 1].replace('"""', "").rstrip()
+            doc_lines.append({"line": ln, "text": txt})
 
     def literal(node):
         try:
@@ -314,6 +321,7 @@ def parse_pipeline(path):
         "sha256": hashlib.sha256(path.read_bytes()).hexdigest(),
         "lines": len(lines),
         "docstring": doc,
+        "docstring_lines": doc_lines,
         "constants": constants,
         "functions": functions,
         "arguments": arguments,
@@ -477,6 +485,7 @@ def main():
         h = float(r["harm"])
         c["sum"] += h
         c["n"] += 1
+        c["max"] = max(c.get("max", 0.0), h)
         y, m = int(r["month"][:4]), int(r["month"][5:7])
         by_year[y].append((m - 1, c["lat"], c["lon"], round(h, 3)))
     grid_months = sorted({r["month"] for r in grid})
@@ -581,6 +590,8 @@ def main():
         "meta": meta("out/grid10km_monthly_harmonized.csv",
                      columns=["cell10", "lat", "lon", "province", "region", "mean_monthly", "total"],
                      first_month=g_first, last_month=g_last, n_months=n_grid_months, n_cells=len(order),
+                     max_monthly=round(max(c["max"] for c in order), 3),
+                     cell_km=10, km_per_degree=parse_pipeline(Path(a.pipeline))["constants"]["KM_DEG"]["value"],
                      notes=["Cells ordered south -> north, then west -> east; grid_march.json uses this order.",
                             f"mean_monthly = total / {n_grid_months} months ({g_first}..{g_last}), months "
                             "without detections count as 0.", "Point estimates."]),
