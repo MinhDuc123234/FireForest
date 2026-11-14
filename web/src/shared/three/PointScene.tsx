@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react'
 import * as THREE from 'three'
 
-import type { SceneBuilder } from './scenes'
+import type { SceneBuilder } from './types'
 
 type Vec3 = [number, number, number]
 

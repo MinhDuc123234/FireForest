@@ -1,15 +1,10 @@
 import React from 'react'
 
-import { ScanFrame } from '../../shared/components/ScanFrame'
-import { PointScene } from '../../shared/three/PointScene'
-import { buildHeroScene } from '../../shared/three/scenes'
-import { DETECTIONS, SITE } from '../../shared/data/fires'
+import { DataPending, DataValue, FileStatus } from '../../shared/components/DataStatus'
 
 type Props = { line1: string; line2: string; onExplore?: () => void }
 
 export function Hero({ line1, line2, onExplore }: Props) {
-  const modis = DETECTIONS.filter((d) => d.sensor === 'MODIS').length
-  const viirs = DETECTIONS.length - modis
   return (
     <section id="top" className="relative mx-auto max-w-[1280px] px-5 pt-12 md:px-10 md:pt-20">
       <div className="relative lg:min-h-[760px]">
@@ -38,33 +33,34 @@ export function Hero({ line1, line2, onExplore }: Props) {
           </div>
         </div>
 
-        <ScanFrame className="mt-10 h-[340px] sm:h-[420px] lg:absolute lg:bottom-0 lg:right-0 lg:mt-0 lg:h-[500px] lg:w-[66%]">
-          <PointScene
-            build={buildHeroScene}
-            camera={{ position: [0, 6.2, 14], target: [1, -0.4, 0], fov: 40 }}
-            label="Point-cloud terrain of dotted contour lines with particle tree clusters and glowing fire hotspots"
+        <DataPending
+          title="Vietnam Fire Grid"
+          note="Real 10 km cells as instanced columns, height and colour = March cell-days, one frame per year. Built in stage 4 from these files."
+          className="mt-10 lg:absolute lg:bottom-0 lg:right-0 lg:mt-0 lg:h-[500px] lg:w-[66%]"
+        >
+          <FileStatus
+            file="grid_cells.json"
+            summary={(d) => `${d.meta.n_cells.toLocaleString('en-US')} cells · ${d.meta.first_month} to ${d.meta.last_month}`}
           />
-          <div className="pointer-events-none absolute left-4 top-4 font-mono text-[11px] leading-5 text-bone-dim">
-            <div className="text-bone">{SITE.name}</div>
-            <div>10.71°N / 105.52°E</div>
-          </div>
-          <div className="pointer-events-none absolute bottom-4 right-4 flex items-center gap-2 font-mono text-[11px] text-bone-dim">
-            <span className="h-1.5 w-1.5 rounded-full bg-ember" />
-            Thermal anomaly · Demo dataset
-          </div>
-        </ScanFrame>
+          <FileStatus
+            file="grid_march.json"
+            summary={(d) => `March, ${d.years[0]}–${d.years[d.years.length - 1]} · point estimate`}
+          />
+        </DataPending>
       </div>
 
       <dl className="mt-12 grid grid-cols-2 border-y border-line md:grid-cols-4">
-        {[
-          ['Site', SITE.name],
-          ['Window', '2019 – 2024'],
-          ['MODIS detections', modis.toLocaleString()],
-          ['VIIRS detections', viirs.toLocaleString()],
-        ].map(([k, v], i) => (
+        {(
+          [
+            ['Window', <DataValue file="national.json" pick={(d) => `${d.meta.first_month} – ${d.meta.last_month}`} />],
+            ['Provinces', <DataValue file="provinces.json" pick={(d) => d.meta.n_provinces} />],
+            ['10 km grid cells', <DataValue file="grid_cells.json" pick={(d) => d.meta.n_cells.toLocaleString('en-US')} />],
+            ['check_outputs.py', <DataValue file="checks.json" pick={(d) => `${d.n_pass}/${d.n_checks} PASS`} />],
+          ] as const
+        ).map(([k, v], i) => (
           <div key={k} className={`px-0 py-5 md:px-6 ${i % 2 ? 'pl-5' : ''} ${i > 0 ? 'md:border-l md:border-line' : 'md:pl-0'}`}>
             <dt className="font-mono text-[11px] text-muted">{k}</dt>
-            <dd className="mt-1 truncate text-sm text-bone">{v}</dd>
+            <dd className="mt-1 truncate text-sm tabular-nums text-bone">{v}</dd>
           </div>
         ))}
       </dl>

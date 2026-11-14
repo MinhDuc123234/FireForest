@@ -34,12 +34,6 @@ export function SiteNav({ onDashboard }: { onDashboard?: () => void }) {
             </a>
           ))}
         </nav>
-        <a
-          href="#api"
-          className="hidden shrink-0 whitespace-nowrap border border-bone/30 px-3 py-1.5 font-mono text-xs text-bone transition-colors duration-150 hover:border-ember hover:text-ember lg:block"
-        >
-          API access
-        </a>
       </div>
       <nav aria-label="Sections" className="flex gap-1 overflow-x-auto border-t border-line px-3 py-1.5 sm:hidden">
         {LINKS.map((l) => (
