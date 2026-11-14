@@ -3,12 +3,14 @@ import 'maplibre-gl/dist/maplibre-gl.css'
 import type { GeoJSONSource, Map as MLMap, MapGeoJSONFeature, PaddingOptions } from 'maplibre-gl'
 
 import type { GridCells, ProvincesGeo } from '../data/load'
-import { fire } from '../lib/colors'
+import { MAP_STOPS, fire } from '../lib/colors'
 import { fmtNum } from '../lib/format'
 import { prepare, type MapGeometry } from './mapData'
-import { DRAW_MIN, LAND, buildStyle, colorExpr, heightExpr } from './mapStyle'
+import { DRAW_MIN, FLAT_MAX, LAND, buildStyle, colorExpr, flatHeightExpr, heightExpr } from './mapStyle'
 
 export type Focus = { kind: 'all' } | { kind: 'region'; name: string } | { kind: 'province'; name: string }
+/** Fixed corner insets for the two archipelagos (offsets in px from the map box edges). */
+export type Insets = { top: number; right: number; bottom: number; small?: boolean }
 
 type Props = {
   grid: GridCells
@@ -24,6 +26,8 @@ type Props = {
   onSelectProvince?: (name: string | null) => void
   /** space covered by overlays (text, panel, HUD): the camera frames Vietnam in what is left */
   padding?: Partial<PaddingOptions>
+  /** draw Hoàng Sa and Trường Sa in corner insets; the main camera then frames the mainland only */
+  insets?: Insets | null
   className?: string
   children?: React.ReactNode
 }
@@ -31,6 +35,7 @@ type Props = {
 const reducedMotion = () => typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches
 const EASE = (t: number) => 1 - Math.pow(1 - t, 3)
 const BEARING = -12
+const insetWidth = (i: Insets) => (i.small ? 96 : 150)
 const TWEEN_MS = 400
 
 /**
@@ -39,7 +44,7 @@ const TWEEN_MS = 400
  * If the basemap cannot load (offline), our own layers still draw on a plain background; if WebGL
  * is unavailable, a static 2D canvas of the same data is shown instead.
  */
-export function FireMap({ grid, geo, values, vmax, variant, monthLabel, focus, onSelectProvince, padding, className = '', children }: Props) {
+export function FireMap({ grid, geo, values, vmax, variant, monthLabel, focus, onSelectProvince, padding, insets, className = '', children }: Props) {
   const host = useRef<HTMLDivElement>(null)
   const mapRef = useRef<MLMap | null>(null)
   const geom = useMemo(() => prepare(grid, geo), [grid, geo])
@@ -51,6 +56,9 @@ export function FireMap({ grid, geo, values, vmax, variant, monthLabel, focus, o
   vmaxRef.current = vmax
   const padRef = useRef(padding)
   padRef.current = padding
+  const inset = !!insets
+  const insetsRef = useRef(insets)
+  insetsRef.current = insets
   const selectRef = useRef(onSelectProvince)
   selectRef.current = onSelectProvince
   const shown = useRef<Float32Array | null>(null) // values currently drawn (tween origin)
@@ -97,10 +105,11 @@ export function FireMap({ grid, geo, values, vmax, variant, monthLabel, focus, o
         /** Frame the mainland in the free area, then zoom out until both archipelago labels are fully visible. */
         const target = () => {
           const pad = { top: 24, bottom: 24, left: 24, right: 24, ...padRef.current }
+          if (insetsRef.current) pad.right += insetWidth(insetsRef.current) + 16
           const w = el.clientWidth, h = el.clientHeight
           const availW = Math.max(60, w - pad.left - pad.right), availH = Math.max(60, h - pad.top - pad.bottom)
           // portrait frames are width-bound (Trường Sa lies at 115°E): a lower pitch keeps the S tall instead of foreshortened
-          const portrait = availW / availH < 0.8
+          const portrait = !inset && availW / availH < 0.8
           const cam = { center: [106.4, 16.0] as [number, number], zoom: 4.6, pitch: portrait ? 28 : hero ? 50 : 45, bearing: BEARING }
           const frame = () => {
             map!.jumpTo(cam)
@@ -125,7 +134,7 @@ export function FireMap({ grid, geo, values, vmax, variant, monthLabel, focus, o
               const r = m.el.getBoundingClientRect()
               return r.left - box.left >= 6 && r.right - box.left <= w - Math.max(6, Math.min(pad.right, 400) - 8) && r.top - box.top >= 6 && r.bottom - box.top <= h - Math.max(6, pad.bottom - 24)
             })
-          for (let i = 0; i < 30; i++) {
+          for (let i = 0; i < 30 && markers.length; i++) {
             frame()
             if (fits()) break
             cam.zoom -= 0.05
@@ -141,8 +150,10 @@ export function FireMap({ grid, geo, values, vmax, variant, monthLabel, focus, o
         map.once('style.load', () => {
           if (cancelled || !map) return
           map.setLight({ anchor: 'viewport', intensity: 0.4, color: '#ffffff', position: [1.5, 200, 40] })
-          // the two archipelagos are labelled by this app only (HTML, so they also show offline)
-          for (const a of geom.archipelagos) {
+          // the two archipelagos are labelled by this app only (HTML, so they also show offline);
+          // with corner insets they are drawn there instead, at a readable scale
+          if (inset) map.setLayoutProperty('islands', 'visibility', 'none')
+          for (const a of inset ? [] : geom.archipelagos) {
             const d = document.createElement('div')
             d.className = 'ff-island-label'
             const cut = a.label.indexOf(' (')
@@ -157,6 +168,7 @@ export function FireMap({ grid, geo, values, vmax, variant, monthLabel, focus, o
             const tick = (now: number) => {
               kRef.current = EASE(Math.min(1, (now - t0) / ms))
               map?.setPaintProperty('cells-3d', 'fill-extrusion-height', heightExpr(vmaxRef.current, kRef.current))
+              map?.setPaintProperty('cells-low', 'fill-extrusion-height', flatHeightExpr(kRef.current))
               if (kRef.current < 1) raf = requestAnimationFrame(tick)
             }
             raf = requestAnimationFrame(tick)
@@ -164,6 +176,7 @@ export function FireMap({ grid, geo, values, vmax, variant, monthLabel, focus, o
           if (still) {
             map.jumpTo(t)
             kRef.current = 1
+            map.setPaintProperty('cells-low', 'fill-extrusion-height', flatHeightExpr(1))
           } else if (hero) {
             map.jumpTo({ ...t, zoom: t.zoom - 1.1, pitch: 0, bearing: 0 })
             map.easeTo({ ...t, duration: 2500, easing: EASE })
@@ -216,7 +229,7 @@ export function FireMap({ grid, geo, values, vmax, variant, monthLabel, focus, o
       map?.remove()
       mapRef.current = null
     }
-  }, [geom, variant])
+  }, [geom, variant, inset])
 
   // ---- data frame: interpolate heights and colours from the frame on screen (400 ms)
   useEffect(() => {
@@ -241,6 +254,7 @@ export function FireMap({ grid, geo, values, vmax, variant, monthLabel, focus, o
     }
     map.setPaintProperty('cells-3d', 'fill-extrusion-color', colorExpr(vmax))
     map.setPaintProperty('cells-3d', 'fill-extrusion-height', heightExpr(vmax, kRef.current))
+    map.setPaintProperty('cells-low', 'fill-extrusion-height', flatHeightExpr(kRef.current))
     if (reducedMotion() || from === to) {
       apply(1)
       return
@@ -275,6 +289,7 @@ export function FireMap({ grid, geo, values, vmax, variant, monthLabel, focus, o
     const b = focus.kind === 'province' ? geom.provinceBounds.get(focus.name) : focus.kind === 'region' ? geom.regionBounds.get(focus.name) : geom.mainland
     if (!b) return
     const pad = { top: 40, bottom: 40, left: 40, right: 40, ...padRef.current }
+    if (insetsRef.current) pad.right += insetWidth(insetsRef.current) + 16
     map.fitBounds(b, { padding: pad, pitch: 45, bearing: BEARING, maxZoom: 8.2, duration: reducedMotion() ? 0 : 1200 })
   }, [focusKey, ready, geom]) // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -288,6 +303,7 @@ export function FireMap({ grid, geo, values, vmax, variant, monthLabel, focus, o
         </div>
       )}
       {failed && <StaticMap geom={geom} values={values} vmax={vmax} />}
+      {insets && <IslandInsets geom={geom} insets={insets} />}
       {tip && (
         <div
           className="pointer-events-none absolute z-10 whitespace-nowrap border border-line bg-ink/95 px-2.5 py-1.5 font-mono text-[11px] leading-5 tabular-nums"
@@ -304,26 +320,67 @@ export function FireMap({ grid, geo, values, vmax, variant, monthLabel, focus, o
   )
 }
 
-/** Fire-day legend for the map (√ scale on a fixed maximum). */
+/** Fire-day legend for the map: absolute stops (MAP_STOPS), evenly spaced; squares under FLAT_MAX are faint and flat. */
 export function MapLegend({ vmax, className = '' }: { vmax: number; className?: string }) {
-  const ticks = [1, 4, 9].filter((t) => Math.sqrt(t / vmax) < 0.8)
+  const grad = MAP_STOPS.map((s, i) => `${s.c} ${(i / (MAP_STOPS.length - 1)) * 100}%`).join(', ')
   return (
     <div className={`font-mono text-[10px] text-muted ${className}`}>
       <div className="mb-1 flex justify-between gap-2 whitespace-nowrap">
-        <span className="text-bone-dim">fire days per square</span>
-        <span>√ · &lt;{DRAW_MIN} hidden</span>
+        <span className="text-bone-dim">fire days per square, month</span>
+        <span>max {fmtNum(vmax, 1)}</span>
       </div>
-      <div className="h-1.5" style={{ background: `linear-gradient(90deg, ${Array.from({ length: 9 }, (_, i) => fire(0.1 + (0.9 * i) / 8)).join(',')})` }} />
+      <div className="h-1.5" style={{ background: `linear-gradient(90deg, ${grad})` }} />
       <div className="relative mt-1 h-3 tabular-nums">
-        <span className="absolute left-0">{DRAW_MIN}</span>
-        {ticks.map((t) => (
-          <span key={t} className="absolute -translate-x-1/2" style={{ left: `${Math.sqrt(t / vmax) * 100}%` }}>
-            {t}
+        {MAP_STOPS.map((s, i) => (
+          <span
+            key={s.v}
+            className={`absolute ${i === 0 ? '' : i === MAP_STOPS.length - 1 ? '-translate-x-full' : '-translate-x-1/2'}`}
+            style={{ left: `${(i / (MAP_STOPS.length - 1)) * 100}%` }}
+          >
+            {i === MAP_STOPS.length - 1 ? `≥${s.v}` : s.v}
           </span>
         ))}
-        <span className="absolute right-0">{fmtNum(vmax, 1)}</span>
       </div>
+      <div className="mt-0.5 whitespace-nowrap">under {FLAT_MAX}: faint, flat · under {DRAW_MIN}: hidden</div>
     </div>
+  )
+}
+
+/** Hoàng Sa (top) and Trường Sa (bottom) in fixed corner boxes, island shapes from provinces.geojson. */
+function IslandInsets({ geom, insets }: { geom: MapGeometry; insets: Insets }) {
+  const W = insetWidth(insets)
+  const H = insets.small ? 70 : 104
+  const order = [...geom.archipelagos].sort((a, b) => b.bbox[1][1] - a.bbox[1][1]) // northern group on top
+  return (
+    <>
+      {order.map((a, i) => {
+        const [[x0, y0], [x1, y1]] = a.bbox
+        const kx = Math.cos((((y0 + y1) / 2) * Math.PI) / 180)
+        const pad = 10
+        const s = Math.min((W - 2 * pad) / ((x1 - x0) * kx || 1), (H - 2 * pad) / (y1 - y0 || 1))
+        const ox = (W - (x1 - x0) * kx * s) / 2, oy = (H - (y1 - y0) * s) / 2
+        const P = (lon: number, lat: number) => `${(ox + (lon - x0) * kx * s).toFixed(1)},${(oy + (y1 - lat) * s).toFixed(1)}`
+        const style: React.CSSProperties = i === 0 ? { top: insets.top, right: insets.right } : { bottom: insets.bottom, right: insets.right }
+        return (
+          <figure key={a.name} className="pointer-events-none absolute z-[5] m-0 bg-[#080807]/90 p-1.5" style={style} aria-label={`${a.label}, inset, not to scale`}>
+            <svg width={W} height={H} className="block border border-[rgba(236,235,228,0.35)] bg-[#0b1418]">
+              {a.rings.map((r, j) => (
+                <polygon key={j} points={r.map(([lon, lat]) => P(lon, lat)).join(' ')} fill="rgba(236,235,228,0.75)" stroke="rgba(236,235,228,0.9)" strokeWidth={0.6} />
+              ))}
+              {a.centroids.map(([lon, lat], j) => {
+                const [x, y] = P(lon, lat).split(',').map(Number)
+                return <circle key={j} cx={x} cy={y} r={1.6} fill="#ecebe4" />
+              })}
+            </svg>
+            <figcaption className="mt-1 ml-auto text-right font-mono text-[10px] leading-tight text-[#c9c8c0] [text-shadow:0_0_3px_#080807]" style={{ width: W }}>
+              <span className="block whitespace-nowrap">{a.name}</span>
+              <span className="block whitespace-nowrap">({a.province})</span>
+              <span className="block text-muted">{insets.small ? 'inset' : 'inset · no fire squares'}</span>
+            </figcaption>
+          </figure>
+        )
+      })}
+    </>
   )
 }
 

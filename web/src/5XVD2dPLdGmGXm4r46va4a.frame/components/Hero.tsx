@@ -66,10 +66,13 @@ export function Hero({ title, subtitle }: Props) {
     [wide, size]
   )
 
+  // below 1280 px the archipelagos go to corner insets so the mainland can fill the frame
+  const insets = size.w < 1280 ? { top: wide ? 24 : Math.round(size.h * 0.42), right: 12, bottom: hudH + 30, small: !wide } : null
+
   return (
     <section id="top" className="relative h-[calc(100svh-3.5rem)] min-h-[600px] overflow-hidden border-b border-line lg:min-h-[640px]" style={{ ['--hud-h' as string]: `${hudH}px` }}>
       {ready && (
-        <FireMap grid={grid.data} geo={geo.data} values={values} vmax={grid.data.meta.max_monthly} variant="hero" padding={padding} className="ff-hero absolute inset-0" />
+        <FireMap grid={grid.data} geo={geo.data} values={values} vmax={grid.data.meta.max_monthly} variant="hero" padding={padding} insets={insets} className="ff-hero absolute inset-0" />
       )}
       {/* legibility scrim behind the text only */}
       <div
@@ -109,7 +112,7 @@ export function Hero({ title, subtitle }: Props) {
       {ready && (
         <div ref={hud} className="absolute inset-x-0 bottom-0 border-t border-line/70 bg-ink/80">
           <div className="mx-auto flex max-w-[1280px] flex-wrap items-center gap-x-5 gap-y-2 px-5 py-2.5 md:px-10 xl:flex-nowrap">
-            <p className="shrink-0 font-mono text-[11px] tabular-nums text-bone">
+            <p className="font-mono text-[11px] tabular-nums text-bone xl:shrink-0">
               March {year} · {fmtInt(active)} squares with fire
               {pass !== undefined && <span className="text-bone-dim"> · Aqua pass {hhmm(pass)} local</span>}
               <span className="hidden text-muted 2xl:inline"> · NASA FIRMS</span>

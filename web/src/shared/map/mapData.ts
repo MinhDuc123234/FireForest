@@ -14,7 +14,7 @@ export type MapGeometry = {
   provinceLabels: GeoJSON.FeatureCollection<GeoJSON.Point, { name: string }>
   islands: GeoJSON.FeatureCollection<GeoJSON.Point>
   /** [lon, lat, label] */
-  archipelagos: { lon: number; lat: number; label: string }[]
+  archipelagos: { lon: number; lat: number; label: string; name: string; province: string; rings: number[][][]; centroids: [number, number][]; bbox: Bounds }[]
   provinceBounds: Map<string, Bounds>
   regionBounds: Map<string, Bounds>
   /** mainland + archipelagos */
@@ -71,6 +71,8 @@ export function prepare(grid: GridCells, geo: ProvincesGeo): MapGeometry {
     const polys = f.geometry.type === 'Polygon' ? [f.geometry.coordinates] : f.geometry.coordinates
     const b = empty()
     const far = empty()
+    const rings: number[][][] = []
+    const cents: [number, number][] = []
     let best: [number, number, number] = [0, 0, -1]
     for (const poly of polys) {
       const c = ringCentroid(poly[0])
@@ -78,6 +80,8 @@ export function prepare(grid: GridCells, geo: ProvincesGeo): MapGeometry {
       if (offshore) {
         islands.features.push({ type: 'Feature', properties: {}, geometry: { type: 'Point', coordinates: [c[0], c[1]] } })
         for (const q of poly[0]) grow(far, q[0], q[1])
+        rings.push(poly[0])
+        cents.push([c[0], c[1]])
       } else {
         for (const q of poly[0]) grow(b, q[0], q[1])
         if (c[2] > best[2]) best = c
@@ -90,7 +94,7 @@ export function prepare(grid: GridCells, geo: ProvincesGeo): MapGeometry {
     if (Number.isFinite(far[0][0])) {
       const name = ARCHIPELAGO[f.properties.name] ?? f.properties.name
       // anchored at the group's south-east corner and right-aligned, so the label never runs past the islands
-      archipelagos.push({ lon: far[1][0], lat: far[0][1], label: `${name} (${f.properties.name})` })
+      archipelagos.push({ lon: far[1][0], lat: far[0][1], label: `${name} (${f.properties.name})`, name, province: f.properties.name, rings, centroids: cents, bbox: far })
       grow(bounds, far[0][0], far[0][1])
       grow(bounds, far[1][0], far[1][1])
     }

@@ -12,7 +12,7 @@
  */
 import type { ExpressionSpecification, LayerSpecification, StyleSpecification } from 'maplibre-gl'
 
-import { FIRE } from '../lib/colors'
+import { MAP_STOPS } from '../lib/colors'
 
 const OFM = 'https://tiles.openfreemap.org'
 const DEM = 'https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png'
@@ -56,18 +56,25 @@ export const FADE = { from: 4.3, to: 5.0 }
 /** Height of the tallest column, metres. */
 export const HMAX_M = 90000
 /** Squares below this many fire days in the month are not drawn (stated in the legends). */
-export const DRAW_MIN = 0.1
+export const DRAW_MIN = MAP_STOPS[0].v
+/** Squares below this are drawn almost flat and faint, so the hot clusters stand out. */
+export const FLAT_MAX = MAP_STOPS[1].v
+/** Height of the faint, almost flat squares, metres. */
+const FLAT_M = 900
 
 const ramp = (stops: readonly string[]): (number | string)[] => stops.flatMap((c, i) => [i / (stops.length - 1), c])
 const norm = (vmax: number): ExpressionSpecification => ['sqrt', ['/', ['min', ['get', 'v'], vmax], vmax]]
 
-/** Columns get shorter as you zoom in, so they never bury the province you are looking at. */
+/** Columns (fire days >= FLAT_MAX): sqrt height; shorter as you zoom in so they never bury the province in view. */
 export function heightExpr(vmax: number, k: number): ExpressionSpecification {
   const f = norm(vmax)
   return ['interpolate', ['linear'], ['zoom'], 5.6, ['*', f, HMAX_M * k], 7.4, ['*', f, 0.36 * HMAX_M * k], 9, ['*', f, 0.14 * HMAX_M * k]]
 }
-export function colorExpr(vmax: number): ExpressionSpecification {
-  return ['interpolate', ['linear'], ['+', 0.1, ['*', 0.9, norm(vmax)]], ...ramp(FIRE)] as unknown as ExpressionSpecification
+/** Faint squares (DRAW_MIN <= fire days < FLAT_MAX): a constant, almost flat height. */
+export const flatHeightExpr = (k: number): ExpressionSpecification => ['literal', FLAT_M * k] as unknown as ExpressionSpecification
+/** Colour by absolute fire days (MAP_STOPS), so 4 days looks the same in every month and year. */
+export function colorExpr(_vmax?: number): ExpressionSpecification {
+  return ['interpolate', ['linear'], ['get', 'v'], ...MAP_STOPS.slice(1).flatMap((s) => [s.v, s.c])] as unknown as ExpressionSpecification
 }
 
 /** Our own sources carry their data inline, so they draw even when the basemap cannot be reached. */
@@ -116,7 +123,7 @@ export function buildStyle(
           'hillshade-illumination-direction': 315,
         },
       },
-      { id: 'water', type: 'fill', source: 'basemap', 'source-layer': 'water', paint: { 'fill-color': WATER } },
+      { id: 'water', type: 'fill', source: 'basemap', 'source-layer': 'water', paint: { 'fill-color': WATER, 'fill-opacity': 1, 'fill-antialias': false } },
       {
         id: 'border',
         type: 'line',
@@ -150,8 +157,20 @@ export function buildStyle(
           'heatmap-weight': ['get', 'w'],
           'heatmap-intensity': ['interpolate', ['linear'], ['zoom'], 2, 0.5, 5, 1.1],
           'heatmap-radius': ['interpolate', ['exponential', 2], ['zoom'], 2, 1.6, 5, 11, 6, 20],
-          'heatmap-color': ['interpolate', ['linear'], ['heatmap-density'], 0, 'rgba(90,22,16,0)', 0.1, 'rgba(90,22,16,0.55)', 0.3, FIRE[1], 0.55, FIRE[2], 0.8, FIRE[3], 1, FIRE[4]],
+          'heatmap-color': ['interpolate', ['linear'], ['heatmap-density'], 0, 'rgba(122,29,18,0)', 0.12, 'rgba(122,29,18,0.4)', 0.35, MAP_STOPS[1].c, 0.7, MAP_STOPS[2].c, 1, MAP_STOPS[3].c],
           'heatmap-opacity': ['interpolate', ['linear'], ['zoom'], FADE.from, 0.95, FADE.to, 0],
+        },
+      },
+      {
+        id: 'cells-low',
+        type: 'fill-extrusion',
+        source: 'cells',
+        minzoom: FADE.from,
+        filter: ['all', ['>=', ['get', 'v'], DRAW_MIN], ['<', ['get', 'v'], FLAT_MAX]],
+        paint: {
+          'fill-extrusion-color': '#7a1d12',
+          'fill-extrusion-height': 0,
+          'fill-extrusion-opacity': ['interpolate', ['linear'], ['zoom'], FADE.from, 0, FADE.to, 0.35],
         },
       },
       {
@@ -159,11 +178,11 @@ export function buildStyle(
         type: 'fill-extrusion',
         source: 'cells',
         minzoom: FADE.from,
-        filter: ['>=', ['get', 'v'], DRAW_MIN],
+        filter: ['>=', ['get', 'v'], FLAT_MAX],
         paint: {
-          'fill-extrusion-color': FIRE[2],
+          'fill-extrusion-color': MAP_STOPS[1].c,
           'fill-extrusion-height': 0,
-          'fill-extrusion-opacity': ['interpolate', ['linear'], ['zoom'], FADE.from, 0, FADE.to, 0.96],
+          'fill-extrusion-opacity': ['interpolate', ['linear'], ['zoom'], FADE.from, 0, FADE.to, 0.97],
           'fill-extrusion-vertical-gradient': true,
         },
       },

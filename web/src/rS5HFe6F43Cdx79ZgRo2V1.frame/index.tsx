@@ -109,6 +109,8 @@ export default function Explore() {
 
   const focus: Focus = entity.kind === 'all' ? { kind: 'all' } : entity
   const padding = useMemo(() => (wide ? { right: 372, left: 56, top: 56, bottom: 24 } : { left: 8, right: 8, top: 48, bottom: 8 }), [wide])
+  // the archipelagos always sit in corner insets here, so the mainland fills the map
+  const insets = useMemo(() => (wide ? { top: 12, right: 384, bottom: 40 } : { top: 100, right: 8, bottom: 34, small: true }), [wide])
 
   if (failed) {
     return (
@@ -141,6 +143,7 @@ export default function Explore() {
             monthLabel={fmtMonth(month)}
             focus={focus}
             padding={padding}
+            insets={insets}
             onSelectProvince={(name) => setEntity(name ? { kind: 'province', name } : { kind: 'all' })}
             className="ff-explore absolute inset-0"
           />
@@ -196,6 +199,7 @@ export default function Explore() {
               nat={nat.data}
               trust={trust.data}
               grid={grid.data}
+              values={values}
             />
           </aside>
         )}

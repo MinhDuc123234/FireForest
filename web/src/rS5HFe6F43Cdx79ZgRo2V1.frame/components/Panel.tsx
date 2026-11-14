@@ -1,7 +1,7 @@
 import React, { useMemo, useState } from 'react'
 
 import type { BandRow } from '../../shared/components/BandChart'
-import { sourceChip, type GridCells, type National, type Provinces, type Trust } from '../../shared/data/load'
+import { sourceChip, useData, type GridCells, type MacroRegion, type National, type Provinces, type Trust } from '../../shared/data/load'
 import { TRUST, WARN } from '../../shared/lib/colors'
 import { MONTHS_LONG, fmtInt, fmtMonth, fmtNum, fmtPctSigned, fmtSigned } from '../../shared/lib/format'
 import { entityLabel, fold, sameMonthMedian, type Entity } from '../entity'
@@ -15,6 +15,8 @@ type Props = {
   nat: National
   trust: Trust
   grid: GridCells
+  /** cell values of the month on the map, grid_cells.json order */
+  values: ArrayLike<number> | null
 }
 
 const SIG = 0.05 // trends with p >= SIG are reported as "no significant trend"
@@ -28,7 +30,8 @@ function download(name: string, content: string) {
   URL.revokeObjectURL(url)
 }
 
-export function Panel({ entity, onEntity, month, rows, prov, nat, trust, grid }: Props) {
+export function Panel({ entity, onEntity, month, rows, prov, nat, trust, grid, values }: Props) {
+  const seasonal = useData('seasonal.json')
   const row = rows.find((r) => r.month === month)
   const lastFull = Math.max(...prov.meta.full_years)
   const med = sameMonthMedian(rows, month, lastFull)
@@ -90,7 +93,7 @@ export function Panel({ entity, onEntity, month, rows, prov, nat, trust, grid }:
 
         <dl className="mt-4 grid grid-cols-2 gap-px border border-line bg-line text-sm">
           <Fact k={`Total since ${fmtMonth(rows[0].month)}`} v={fmtInt(rows.reduce((s, r) => s + r.v, 0))} />
-          {p ? <Fact k="Peak month" v={`${MONTHS_LONG[p.peak_month - 1]}`} /> : <Fact k="Provinces" v={fmtInt(prov.meta.n_provinces)} />}
+          <Fact k="Peak month" v={p ? MONTHS_LONG[p.peak_month - 1] : peakOf(seasonal.status === 'ready' ? seasonal.data.regions[entity.kind === 'all' ? 'Vietnam' : (entity.name as MacroRegion)] : undefined)} note={p ? 'mean month' : 'mean of full years'} />
           <Fact
             k={`Trend ${trend?.years.replace('-', '–') ?? ''}`}
             v={trend && trend.theil_sen_pct_per_year !== null ? (trend.p_value < SIG ? `${fmtSigned(trend.theil_sen_pct_per_year, 1)}%/yr` : 'no significant trend') : '—'}
@@ -99,7 +102,7 @@ export function Panel({ entity, onEntity, month, rows, prov, nat, trust, grid }:
           {p ? (
             <Fact k="95% band width" v={p.band_rel_width_median !== null ? `${fmtNum(100 * p.band_rel_width_median, 0)}% of value` : '—'} note="median month" />
           ) : (
-            <Fact k="10 km squares" v={fmtInt(grid.meta.n_cells)} />
+            <Fact k={`Squares ≥ 1 fire day`} v={values ? fmtInt(countAtLeast(values, grid, entity, 1)) : '—'} note={fmtMonth(month)} />
           )}
         </dl>
         <p className="mt-2 font-mono text-[10px] leading-relaxed text-muted">
@@ -155,6 +158,23 @@ export function Panel({ entity, onEntity, month, rows, prov, nat, trust, grid }:
       </details>
     </div>
   )
+}
+
+function peakOf(rows: { cal_month: number; mean: number }[] | undefined) {
+  if (!rows?.length) return '—'
+  return MONTHS_LONG[rows.reduce((a, b) => (b.mean > a.mean ? b : a)).cal_month - 1]
+}
+
+/** 10 km squares of the entity with at least `min` fire days in the month on the map. */
+function countAtLeast(values: ArrayLike<number>, grid: GridCells, entity: Entity, min: number) {
+  let n = 0
+  grid.cells.forEach((c, i) => {
+    if ((values[i] ?? 0) < min) return
+    if (entity.kind === 'region' && c[4] !== entity.name) return
+    if (entity.kind === 'province' && c[3] !== entity.name) return
+    n++
+  })
+  return n
 }
 
 function Fact({ k, v, note }: { k: string; v: string; note?: string }) {

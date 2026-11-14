@@ -12,6 +12,16 @@ import { scaleLinear } from 'd3-scale'
 export const INFERNO = ['#1B0C2E', '#6A1B4D', '#C8371F', '#F28C28', '#FFE08A'] as const
 /** The fire end of the same ramp, starting from deep red (map columns and heat): no purple on the map. */
 export const FIRE = ['#5a1610', '#9a2416', '#C8371F', '#F28C28', '#FFE08A'] as const
+/**
+ * Map columns by absolute fire days per 10 km square (not normalised): faint deep red at the drawing
+ * threshold, red, orange, pale yellow from 4 days up. The same stops drive the map and its legend.
+ */
+export const MAP_STOPS = [
+  { v: 0.1, c: 'rgba(122,29,18,0.35)' },
+  { v: 0.5, c: '#C8371F' },
+  { v: 1.5, c: '#F28C28' },
+  { v: 4, c: '#FFE08A' },
+] as const
 export const ACTION = '#FF6A1F'
 export const TRUST = '#3BC9DB'
 export const NAIVE = '#8d8c85'
