@@ -17,13 +17,12 @@ export function TrustLimits() {
   const trust = useData('trust.json')
   const checks = useData('checks.json')
   if (trust.status === 'error' || checks.status === 'error') return null
-  if (trust.status !== 'ready' || checks.status !== 'ready') return <section id="trust" className="min-h-[900px]" />
+  if (trust.status !== 'ready' || checks.status !== 'ready') return <section className="min-h-[900px]" />
   const t = trust.data
 
   return (
-    <section id="trust" className="scroll-mt-20 border-t border-line">
-      <div className="mx-auto max-w-[1280px] px-5 py-24 md:px-10 md:py-32">
-        <p className="font-mono text-[11px] text-muted">Trust</p>
+    <section>
+      <div className="mx-auto max-w-[1280px] px-5 pb-24 pt-20 md:px-10 md:pb-32">
         <Validation t={t} />
         <div className="mt-20 grid gap-16 lg:grid-cols-12 lg:gap-8">
           <div className="min-w-0 lg:col-span-7">
@@ -312,6 +311,7 @@ function Sources() {
     ['NASA FIRMS active fires', 'MODIS C6.1 (Aqua), VIIRS C2 (S-NPP, NOAA-20)', 'https://firms.modaps.eosdis.nasa.gov/'],
     ['geoBoundaries', 'Vietnam ADM1, gbOpen', 'https://www.geoboundaries.org/'],
     ['Sofiev & Kouznetsov (2026)', 'MODIS detection-limit anchors used by the observation operator', ''],
+    ['OpenFreeMap basemap', '© OpenMapTiles, data from OpenStreetMap contributors (ODbL); no API key', 'https://openfreemap.org/'],
     ['FireForest repository', 'pipeline, checks and this site', REPO],
   ]
   return (
