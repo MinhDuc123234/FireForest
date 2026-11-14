@@ -2,6 +2,7 @@ import React from 'react'
 
 /** Page sections, in page order. "Seasons" groups the seasonal calendar, the burning calendar and the 10 km map. */
 export const SECTIONS = [
+  { label: 'Story', href: '#story' },
   { label: 'Method', href: '#method' },
   { label: 'Seasons', href: '#seasons' },
 ]

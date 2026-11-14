@@ -3,6 +3,7 @@ import React from 'react'
 import { SiteNav } from './components/SiteNav'
 import { Hero } from './components/Hero'
 import { Methodology } from './components/Methodology'
+import { Harmonization } from './components/Harmonization'
 import { HarmonizedMap } from './components/HarmonizedMap'
 import { BurningCalendar } from './components/BurningCalendar'
 import { ThermalFooter } from './components/ThermalFooter'
@@ -34,6 +35,7 @@ export default function Home(props: Props) {
         <div className="mx-auto max-w-[1280px] px-5 pt-16 md:px-10">
           <FireStripes />
         </div>
+        <Harmonization />
         <Methodology />
         <div id="seasons" className="scroll-mt-20">
           <BurningCalendar />

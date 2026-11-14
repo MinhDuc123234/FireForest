@@ -27,11 +27,14 @@ export function Hero({ title, subtitle }: Props) {
           </p>
           <div className="mt-8 flex flex-wrap items-center gap-3">
             <a
-              href="#method"
+              href="#story"
               className="inline-flex items-center gap-2 whitespace-nowrap bg-ember px-5 py-3 text-sm font-semibold text-ink transition-colors duration-150 hover:bg-bone focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ember"
             >
-              How it works
+              See the 2012 jump
               <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="h-4 w-4 rotate-90"><path d="M5 12h14m-7-7 7 7-7 7" strokeLinecap="round" strokeLinejoin="round" /></svg>
+            </a>
+            <a href="#method" className="whitespace-nowrap px-2 py-3 text-sm text-bone-dim underline-offset-4 hover:text-bone hover:underline">
+              How it works
             </a>
           </div>
         </div>
