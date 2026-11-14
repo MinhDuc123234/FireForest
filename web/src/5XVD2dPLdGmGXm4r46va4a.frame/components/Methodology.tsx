@@ -1,7 +1,8 @@
 import React from 'react'
 
 import { DataValue } from '../../shared/components/DataStatus'
-import { UNIT, useData, type Method } from '../../shared/data/load'
+import { UNIT, useData, type Kpi, type Method, type National, type Trust } from '../../shared/data/load'
+import { CalibrateGlyph, FilterGlyph, HeldOutGlyph, OperatorGlyph, UncertaintyGlyph } from '../../shared/components/MethodGlyphs'
 
 /** CLI default of harmonize_fire_v2.py, read from method.json (parsed from the source). */
 function arg(m: Method, flag: string) {
@@ -15,12 +16,14 @@ function constant(m: Method, name: string) {
 const VIIRS_CONF: Record<string, string> = { l: 'low', n: 'nominal', h: 'high' }
 const viirsConf = (codes: string) => `${codes.split(',').map((c) => VIIRS_CONF[c.trim()] ?? c).join('/')} (${codes})`
 
-type Step = { title: string; fns: string[]; body: (m: Method) => React.ReactNode }
+type Ctx = { method: Method; trust: Trust; nat: National; kpi: Kpi }
+type Step = { title: string; fns: string[]; body: (m: Method) => React.ReactNode; glyph: (c: Ctx) => React.ReactNode }
 
 const STEPS: Step[] = [
   {
     title: 'Filter',
     fns: ['prep'],
+    glyph: () => <FilterGlyph />,
     body: (m) => (
       <>
         Afternoon passes only · vegetation fires · VIIRS confidence {viirsConf(String(arg(m, '--viirs-conf')))} · MODIS confidence ≥{' '}
@@ -31,6 +34,7 @@ const STEPS: Step[] = [
   {
     title: 'Observation operator',
     fns: ['swath_nodes', 'viirs_cellday'],
+    glyph: (c) => <OperatorGlyph method={c.method} />,
     body: () => (
       <>
         The MODIS detection limit grows with pixel area; detection probability is logistic in fire radiative power
@@ -42,6 +46,7 @@ const STEPS: Step[] = [
   {
     title: 'Calibrate',
     fns: ['calib'],
+    glyph: (c) => <CalibrateGlyph trust={c.trust} />,
     body: (m) => (
       <>
         Ratio R = Aqua observed ÷ predicted, per region × calendar month, fitted on {m.viirs_start?.value.slice(0, 4)}–
@@ -52,6 +57,7 @@ const STEPS: Step[] = [
   {
     title: 'Uncertainty',
     fns: ['boot_bands'],
+    glyph: (c) => <UncertaintyGlyph nat={c.nat} year={c.kpi.windows.test[1]} />,
     body: (m) => {
       const sc = arg(m, '--scenarios') as number[] | undefined
       return (
@@ -65,11 +71,13 @@ const STEPS: Step[] = [
   {
     title: 'Held-out test',
     fns: ['metrics'],
+    glyph: (c) => <HeldOutGlyph kpi={c.kpi} />,
     body: (m) => {
       const te = Number(arg(m, '--train-end'))
       return (
         <>
-          Fit {m.viirs_start?.value.slice(0, 4)}–{te}, then test from {te + 1} against Aqua observations the fit never saw.
+          Fit {m.viirs_start?.value.slice(0, 4)}–{te}, then test from {te + 1} on Aqua observations the fit never saw. Physics +
+          calibration has the lowest error (wMAPE); a constant ratio happens to have the smaller national bias.
         </>
       )
     },
@@ -78,6 +86,14 @@ const STEPS: Step[] = [
 
 export function Methodology() {
   const method = useData('method.json')
+  const trust = useData('trust.json')
+  const nat = useData('national.json')
+  const kpi = useData('kpi.json')
+  const ctx: Ctx | null =
+    method.status === 'ready' && trust.status === 'ready' && nat.status === 'ready' && kpi.status === 'ready'
+      ? { method: method.data, trust: trust.data, nat: nat.data, kpi: kpi.data }
+      : null
+  if ([method, trust, nat, kpi].some((s) => s.status === 'error')) return null
   return (
     <section id="method" className="scroll-mt-20 border-t border-line">
       <div className="mx-auto max-w-[1280px] px-5 py-24 md:px-10 md:py-32">
@@ -96,7 +112,8 @@ export function Methodology() {
             <li key={s.title} className="flex flex-col bg-ink p-6">
               <span className="font-mono text-[11px] text-ember">{String(i + 1).padStart(2, '0')}</span>
               <h3 className="mt-3 text-xl font-semibold tracking-tight">{s.title}</h3>
-              <p className="mt-2 max-w-[48ch] flex-1 text-sm leading-relaxed text-bone-dim">
+              <div className="mt-5 border-y border-line/60 py-3">{ctx ? s.glyph(ctx) : <div className="h-[72px] animate-pulse bg-bone/[0.03]" />}</div>
+              <p className="mt-4 max-w-[48ch] flex-1 text-sm leading-relaxed text-bone-dim">
                 {method.status === 'ready' ? s.body(method.data) : <span className="inline-block h-10 w-full animate-pulse bg-bone/5" />}
               </p>
               <p className="mt-5 flex flex-wrap gap-x-3 gap-y-1 font-mono text-[11px] text-muted">
