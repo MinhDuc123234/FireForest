@@ -16,10 +16,11 @@ python web/scripts/export_data.py --out out --web web/public/data
 cd web && npm install && npm run dev
 ```
 
-`export_data.py` uses only the Python standard library. It also runs
-`harmonize/check_outputs.py`, which needs pandas + numpy; the script picks the first interpreter
-that can import them (`python`, then `py -3`) or takes `--check-python <path>`. It reads `out/`,
-`geometry/` and `harmonize/` and never writes there.
+**Requires a Python with pandas + numpy** for the `check_outputs.py` step (on Windows: `py -3`,
+e.g. `py -3 web/scripts/export_data.py --out out --web web/public/data`).
+`export_data.py` itself uses only the standard library; it runs `harmonize/check_outputs.py` with
+the first interpreter that can import pandas (`python`, then `py -3`) or with
+`--check-python <path>`. It reads `out/`, `geometry/` and `harmonize/` and never writes there.
 
 `npm run build` type-checks (`tsc --noEmit`) and then builds into `web/dist/`.
 
@@ -48,5 +49,5 @@ Front-end access goes through `src/shared/data/load.ts` (typed loaders, cache, `
 
 `public/data/monthly_series.csv` (123 KB) and `public/data/grid10km_monthly_harmonized.csv` (8.6 MB)
 are verbatim copies of the `out/` files added in commit 3ba58e2. The burning calendar and the
-Vietnam map are being moved to `national.json` and `grid/<YYYY>.json`; whether to keep these copies
+Vietnam map now read `national.json` and `grid/<YYYY>.json` (via `load.ts`); whether to keep these copies
 is still open.

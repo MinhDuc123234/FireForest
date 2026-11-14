@@ -1,11 +1,13 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react'
 
+import { sourceChip, useData, type National, type Region } from '../../shared/data/load'
+
 type MonthlyRow = {
   month: string
-  region: string
-  aquaObserved: number
-  viirsRaw: number
-  naiveSplice: number
+  region: Region
+  aquaObserved: number | null
+  viirsRaw: number | null
+  naiveSplice: number | null
   harmonized: number
   low: number
   high: number
@@ -15,19 +17,27 @@ type MonthlyRow = {
 }
 
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
-const REGIONS = ['Vietnam', 'South', 'Central', 'North-Central', 'North']
 const W = 780
 const H = 300
 const PAD = { left: 44, right: 16, top: 18, bottom: 32 }
 
-function parseCsv(text: string): MonthlyRow[] {
-  return text.trim().split(/\r?\n/).slice(1).map((line) => {
-    const [month, region, aquaObserved, viirsRaw, naiveSplice, harmonized, low, high, source, aquaGap, , , anomaly] = line.split(',')
-    return {
-      month, region, aquaObserved: Number(aquaObserved), viirsRaw: Number(viirsRaw), naiveSplice: Number(naiveSplice),
-      harmonized: Number(harmonized), low: Number(low), high: Number(high), source, aquaGap: aquaGap === 'True', anomaly: anomaly ?? '',
-    }
-  }).filter((row) => row.month && row.region && Number.isFinite(row.harmonized))
+/** Flatten national.json into rows; the `source` labels are the ones harmonize_fire_v2.py writes. */
+function toRows(d: National): MonthlyRow[] {
+  const rows: MonthlyRow[] = []
+  for (const region of d.meta.regions) {
+    const s = d.regions[region]
+    d.months.forEach((month, i) => {
+      const harmonized = s.harmonized[i]
+      if (harmonized === null) return
+      rows.push({
+        month, region, aquaObserved: s.aqua_observed[i], viirsRaw: s.snpp_raw[i], naiveSplice: s.naive_splice[i],
+        harmonized, low: s.lo[i] ?? harmonized, high: s.hi[i] ?? harmonized,
+        source: month >= d.meta.viirs_start ? 'VIIRS->MODIS-equivalent' : 'Aqua observed',
+        aquaGap: s.aqua_gap[i], anomaly: s.anomaly[i] ?? '',
+      })
+    })
+  }
+  return rows
 }
 
 function download(name: string, content: string, type: string) {
@@ -40,39 +50,22 @@ function download(name: string, content: string, type: string) {
 }
 
 export function BurningCalendar() {
-  const [rows, setRows] = useState<MonthlyRow[]>([])
-  const [error, setError] = useState('')
-  const [region, setRegion] = useState('Vietnam')
-  const [from, setFrom] = useState('2003-01')
-  const [to, setTo] = useState('2026-10')
+  const national = useData('national.json')
+  const rows = useMemo(() => (national.status === 'ready' ? toRows(national.data) : []), [national])
+  const error = national.status === 'error' ? `Could not load national.json (${national.error.message})` : ''
+  const REGIONS = national.status === 'ready' ? national.data.meta.regions : []
+  const [region, setRegion] = useState<Region>('Vietnam')
+  const [from, setFrom] = useState('')
+  const [to, setTo] = useState('')
   const chartRef = useRef<SVGSVGElement>(null)
 
+  const rangeStart = national.status === 'ready' ? national.data.meta.first_month : ''
+  const rangeEnd = national.status === 'ready' ? national.data.meta.last_month : ''
   useEffect(() => {
-    const controller = new AbortController()
-    fetch('/data/monthly_series.csv', { signal: controller.signal })
-      .then((response) => {
-        if (!response.ok) throw new Error(`Could not load monthly series (${response.status})`)
-        return response.text()
-      })
-      .then((csv) => {
-        const parsed = parseCsv(csv)
-        setRows(parsed)
-        if (parsed.length) {
-          const min = parsed.reduce((a, b) => a.month < b.month ? a : b).month
-          const max = parsed.reduce((a, b) => a.month > b.month ? a : b).month
-          setFrom(min)
-          setTo(max)
-        }
-      })
-      .catch((err: unknown) => {
-        if (err instanceof Error && err.name !== 'AbortError') setError(err.message)
-      })
-    return () => controller.abort()
-  }, [])
-
-  const availableMonths = useMemo(() => rows.map((row) => row.month).sort(), [rows])
-  const rangeStart = availableMonths[0] ?? '2003-01'
-  const rangeEnd = availableMonths[availableMonths.length - 1] ?? '2026-10'
+    // default to the full record once the file has loaded
+    if (rangeStart && !from) setFrom(rangeStart)
+    if (rangeEnd && !to) setTo(rangeEnd)
+  }, [rangeStart, rangeEnd, from, to])
   const selectedRows = useMemo(() => rows.filter((row) => row.region === region && row.month >= from && row.month <= to).sort((a, b) => a.month.localeCompare(b.month)), [rows, region, from, to])
   const years = useMemo(() => [...new Set(selectedRows.map((row) => Number(row.month.slice(0, 4))))], [selectedRows])
   const byMonth = useMemo(() => new Map(selectedRows.map((row) => [row.month, row])), [selectedRows])
@@ -104,7 +97,7 @@ export function BurningCalendar() {
     const fields: (keyof MonthlyRow)[] = ['month', 'region', 'aquaObserved', 'viirsRaw', 'naiveSplice', 'harmonized', 'low', 'high', 'source', 'aquaGap', 'anomaly']
     const header = ['month', 'region', 'aqua_observed', 'viirs_raw', 'naive_splice', 'harmonized', 'harmonized_lo', 'harmonized_hi', 'source', 'aqua_gap', 'anomaly']
     const quote = (value: unknown) => `"${String(value ?? '').replaceAll('"', '""')}"`
-    const csv = [header.join(','), ...selectedRows.map((row) => fields.map((field) => quote(row[field])).join(','))].join('\n')
+    const csv = [`# ${sourceChip('out/monthly_series.csv')} · rounded to 0.1 in national.json`, header.join(','), ...selectedRows.map((row) => fields.map((field) => quote(row[field])).join(','))].join('\n')
     download(`fire-activity-${region.toLowerCase().replaceAll(' ', '-')}-${from}-to-${to}.csv`, csv, 'text/csv;charset=utf-8')
   }
 
@@ -124,7 +117,7 @@ export function BurningCalendar() {
             <p className="mt-5 max-w-2xl text-sm leading-relaxed text-bone-dim md:text-base">Follow harmonized activity from the start of the MODIS record through the latest VIIRS observations. Choose a region and date range; the sensor handoff is already calibrated into one series.</p>
           </div>
           <div className="grid grid-cols-2 gap-x-6 gap-y-5 border-l border-line pl-6">
-            <label className="col-span-2 block"><span className="mb-2 block text-xs text-bone-dim">Region</span><select value={region} onChange={(e) => setRegion(e.target.value)} className="w-full border border-line bg-ink-2 px-3 py-2.5 text-sm text-bone [color-scheme:dark] focus:border-ember">{REGIONS.map((name) => <option key={name}>{name}</option>)}</select></label>
+            <label className="col-span-2 block"><span className="mb-2 block text-xs text-bone-dim">Region</span><select value={region} onChange={(e) => setRegion(e.target.value as Region)} className="w-full border border-line bg-ink-2 px-3 py-2.5 text-sm text-bone [color-scheme:dark] focus:border-ember">{REGIONS.map((name) => <option key={name}>{name}</option>)}</select></label>
             <label className="block"><span className="mb-2 block text-xs text-bone-dim">From</span><input type="month" min={rangeStart} max={rangeEnd} value={from} onChange={(e) => setFrom(e.target.value)} className="w-full border border-line bg-ink-2 px-3 py-2.5 font-mono text-xs text-bone [color-scheme:dark] focus:border-ember" /></label>
             <label className="block"><span className="mb-2 block text-xs text-bone-dim">To</span><input type="month" min={rangeStart} max={rangeEnd} value={to} onChange={(e) => setTo(e.target.value)} className="w-full border border-line bg-ink-2 px-3 py-2.5 font-mono text-xs text-bone [color-scheme:dark] focus:border-ember" /></label>
           </div>
@@ -182,7 +175,7 @@ export function BurningCalendar() {
 
             <div className="mt-8 flex flex-wrap items-start justify-between gap-3 border-t border-line pt-4 text-[11px] leading-relaxed text-muted">
               <p className="max-w-3xl">Harmonized values are estimated fire-active 10 km cell-days, not raw satellite pixel counts. Before VIIRS coverage, the series uses Aqua observations; the overlap period calibrates VIIRS to MODIS-equivalent activity.</p>
-              <p>Data: out/monthly_series.csv · {selectedRows[0]?.month ?? '—'} to {selectedRows.at(-1)?.month ?? '—'}</p>
+              <p className="font-mono text-[10px]">{sourceChip('out/monthly_series.csv')} · {selectedRows[0]?.month ?? '—'} to {selectedRows.at(-1)?.month ?? '—'}</p>
             </div>
           </>
         )}

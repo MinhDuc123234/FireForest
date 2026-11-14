@@ -239,12 +239,13 @@ export type Loadable<T> =
   | { status: 'ready'; data: T; error: null }
   | { status: 'error'; data: null; error: Error }
 
-/** React hook: state of one data file. */
-export function useData<F extends AnyFile>(file: F): Loadable<FileData<F>> {
+/** React hook: state of one data file. Pass null to wait (stays 'loading', nothing is fetched). */
+export function useData<F extends AnyFile>(file: F | null): Loadable<FileData<F>> {
   const [state, setState] = useState<Loadable<FileData<F>>>({ status: 'loading', data: null, error: null })
   useEffect(() => {
     let alive = true
     setState({ status: 'loading', data: null, error: null })
+    if (file === null) return
     loadFile(file).then(
       (data) => alive && setState({ status: 'ready', data, error: null }),
       (error: unknown) =>
