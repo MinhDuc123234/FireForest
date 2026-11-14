@@ -2,12 +2,19 @@ import React from 'react'
 import { scaleLinear } from 'd3-scale'
 import { area, line } from 'd3-shape'
 
-import type { Kpi, Method, National, Trust } from '../../shared/data/load'
+import type { Kpi, Method, National, Province, Provinces, Trust } from '../../shared/data/load'
 import { AQUA, FIRE, GRID, MUTED, NAIVE, TRUST } from '../../shared/lib/colors'
 import { MONTHS, fmtInt, fmtMonth, fmtNum, fmtPctSigned } from '../../shared/lib/format'
 import type { Physics } from '../../shared/lib/physics'
 
-export type FigCtx = { method: Method; trust: Trust; nat: National; kpi: Kpi; P: Physics; W: number; H: number }
+export type FigCtx = { method: Method; trust: Trust; nat: National; kpi: Kpi; prov: Provinces; P: Physics; W: number; H: number }
+
+/** Among the ten provinces with the most fire days: the one whose widest 95% band in `year`, relative to its peak that year, is largest. */
+export function bandProvince(prov: Provinces, year: number): Province {
+  const idx = prov.months.map((m, i) => (m.startsWith(`${year}-`) ? i : -1)).filter((i) => i >= 0)
+  const score = (p: Province) => Math.max(...idx.map((i) => p.hi[i] - p.lo[i])) / (Math.max(...idx.map((i) => p.hi[i])) || 1)
+  return [...prov.provinces].filter((p) => p.rank_total <= 10).sort((a, b) => score(b) - score(a))[0]
+}
 
 const mono = { fontFamily: 'JetBrains Mono, monospace' }
 const T = ({ x, y, children, fill = MUTED, size = 10, anchor = 'start', weight }: { x: number; y: number; children: React.ReactNode; fill?: string; size?: number; anchor?: 'start' | 'middle' | 'end'; weight?: number }) => (
@@ -117,12 +124,8 @@ export function FigPixels({ P, W, H }: FigCtx) {
       <rect x={mod.x} y={mod.y} width={1000 * S} height={1000 * S} fill="none" stroke={AQUA} strokeWidth={1.8} />
       <circle cx={fire.x} cy={fire.y} r={4.5} fill={FIRE[3]} />
       <T x={g0.x} y={g0.y - 12} fill={AQUA} size={narrow ? 10 : 11}>MODIS 1 km · VIIRS 375 m</T>
-      {!narrow && (
-        <>
-          <line x1={fire.x + 6} x2={g0.x + gridPx + 10} y1={fire.y} y2={fire.y} stroke={FIRE[3]} strokeWidth={0.8} />
-          <T x={g0.x + gridPx + 14} y={fire.y + 4} fill={FIRE[3]} size={10}>one small fire</T>
-        </>
-      )}
+      <circle cx={g0.x + 4} cy={g0.y + gridPx + 16} r={4} fill={FIRE[3]} />
+      <T x={g0.x + 14} y={g0.y + gridPx + 20} fill={FIRE[3]} size={10}>one small fire</T>
 
       <T x={bx} y={base - Math.sqrt(P.pixelArea(P.TH)) * k - 14} fill={AQUA} size={narrow ? 10 : 11}>MODIS pixel area across the scan</T>
       {angles.map((a, i) => {
@@ -206,13 +209,21 @@ export function FigR({ trust, W, H }: FigCtx) {
               return (
                 <g key={i}>
                   <rect x={x + cw * 0.16} y={y(v)} width={cw * 0.68} height={y(0) - y(v)} fill={v > 1 ? FIRE[3] : TRUST} fillOpacity={0.8} />
-                  {show && <T x={x + cw / 2} y={y(v) - 3} anchor="middle" size={9} fill="#a9a8a0">{fmtNum(v, 2).replace(/^0/, '')}</T>}
+                  {show && v > 1 && (
+                    <T x={x + cw / 2} y={y(v) - 3} anchor="middle" size={9} fill={FIRE[3]} weight={600}>{fmtNum(v, 2)}</T>
+                  )}
+                  {show && v <= 1 && !narrow && y(0) - y(v) >= 14 && (
+                    <T x={x + cw / 2} y={y(v) + 11} anchor="middle" size={9} fill="#080807" weight={600}>{fmtNum(v, 2).replace(/^0/, '')}</T>
+                  )}
+                  {show && v <= 1 && narrow && (
+                    <T x={x + cw / 2} y={y(1) - 3} anchor="middle" size={9} fill="#a9a8a0">{fmtNum(v, 2).replace(/^0/, '')}</T>
+                  )}
                   {ri === regions.length - 1 && <T x={x + cw / 2} y={H - 2} anchor="middle" size={10}>{narrow ? MONTHS[i][0] : MONTHS[i]}</T>}
                 </g>
               )
             })}
             <line x1={lw} x2={W - 4} y1={y(1)} y2={y(1)} stroke={AQUA} strokeDasharray="3 3" strokeWidth={0.9} />
-            {ri === 0 && <T x={W - 4} y={y(1) - 4} anchor="end" size={10} fill={AQUA}>R = 1</T>}
+            {ri === 0 && <T x={W - 4} y={narrow ? y0 - 2 : y(1) - 4} anchor="end" size={10} fill={AQUA}>{narrow ? '--- R = 1' : 'R = 1'}</T>}
           </g>
         )
       })}
@@ -220,35 +231,42 @@ export function FigR({ trust, W, H }: FigCtx) {
   )
 }
 
-/** 5 · The 95% band of one year, national, peak month labelled. */
-export function FigBand({ nat, kpi, W, H }: FigCtx) {
+/** 5 · A 95% band you can see: the province with the widest band among the ten most-burnt, last test year. */
+export function FigBand({ prov, kpi, W, H }: FigCtx) {
   const year = kpi.windows.test[1]
-  const s = nat.regions.Vietnam
-  const idx = nat.months.map((m, i) => (m.startsWith(`${year}-`) ? i : -1)).filter((i) => i >= 0)
-  const m = { l: 52, r: 16, t: 40, b: 30 }
+  const p = bandProvince(prov, year)
+  const idx = prov.months.map((m, i) => (m.startsWith(`${year}-`) ? i : -1)).filter((i) => i >= 0)
+  const m = { l: 48, r: 16, t: 46, b: 30 }
   const x = scaleLinear().domain([idx[0], idx[idx.length - 1]]).range([m.l, W - m.r])
-  const y = scaleLinear().domain([0, Math.max(...idx.map((i) => s.hi[i] ?? 0))]).range([H - m.b, m.t]).nice(4)
-  const band = area<number>().x(x).y0((i) => y(s.lo[i] ?? 0)).y1((i) => y(s.hi[i] ?? 0))(idx) ?? ''
-  const ln = line<number>().x(x).y((i) => y(s.harmonized[i] ?? 0))(idx) ?? ''
-  const peak = idx.reduce((a, b) => ((s.harmonized[b] ?? 0) > (s.harmonized[a] ?? 0) ? b : a))
+  const y = scaleLinear().domain([0, Math.max(...idx.map((i) => p.hi[i])) * 1.12]).range([H - m.b, m.t]).nice(4)
+  const band = area<number>().x(x).y0((i) => y(p.lo[i])).y1((i) => y(p.hi[i]))(idx) ?? ''
+  const ln = line<number>().x(x).y((i) => y(p.harmonized[i]))(idx) ?? ''
+  const widest = idx.reduce((a, b) => (p.hi[b] - p.lo[b] > p.hi[a] - p.lo[a] ? b : a))
+  const right = x(widest) > W * 0.6
+  const d = (v: number) => (v < 100 ? 1 : 0)
   return (
-    <svg width={W} height={H} role="img" aria-label={`Harmonized monthly series with its 95% band, Vietnam ${year}`}>
+    <svg width={W} height={H} role="img" aria-label={`${p.name} ${year}: harmonized monthly series with its 95% band; widest band in ${fmtMonth(prov.months[widest])}`}>
+      <T x={0} y={14} fill={AQUA} size={11}>{p.name}, {year}</T>
+      <T x={0} y={28} size={10}>widest band among the ten most-burnt · cell-days / month</T>
       {y.ticks(4).map((t) => (
         <g key={t}>
           <line x1={m.l} x2={W - m.r} y1={y(t)} y2={y(t)} stroke={GRID} />
           <T x={m.l - 8} y={y(t) + 3} anchor="end">{fmtInt(t)}</T>
         </g>
       ))}
-      <T x={0} y={m.t - 22}>cell-days / month · Vietnam {year}</T>
-      <path d={band} fill={TRUST} fillOpacity={0.22} />
+      <path d={band} fill={TRUST} fillOpacity={0.25} />
       <path d={ln} fill="none" stroke={TRUST} strokeWidth={2} />
       {idx.map((i) => (
-        <T key={i} x={x(i)} y={H - 10} anchor="middle">{MONTHS[Number(nat.months[i].slice(5)) - 1][0]}</T>
+        <T key={i} x={x(i)} y={H - 10} anchor="middle">{MONTHS[Number(prov.months[i].slice(5)) - 1][0]}</T>
       ))}
-      <line x1={x(peak)} x2={x(peak)} y1={y(s.hi[peak] ?? 0)} y2={y(s.lo[peak] ?? 0)} stroke={AQUA} strokeWidth={1.2} />
-      <T x={x(peak) + 10} y={y(s.harmonized[peak] ?? 0) - 6} fill={AQUA} size={11}>{fmtMonth(nat.months[peak])}: {fmtInt(s.harmonized[peak] ?? 0)}</T>
-      <T x={x(peak) + 10} y={y(s.harmonized[peak] ?? 0) + 10} fill={TRUST} size={10}>
-        95% {fmtInt(s.lo[peak] ?? 0)}–{fmtInt(s.hi[peak] ?? 0)}
+      <line x1={x(widest)} x2={x(widest)} y1={y(p.hi[widest])} y2={y(p.lo[widest])} stroke={AQUA} strokeWidth={1.4} />
+      <line x1={x(widest) - 5} x2={x(widest) + 5} y1={y(p.hi[widest])} y2={y(p.hi[widest])} stroke={AQUA} strokeWidth={1.4} />
+      <line x1={x(widest) - 5} x2={x(widest) + 5} y1={y(p.lo[widest])} y2={y(p.lo[widest])} stroke={AQUA} strokeWidth={1.4} />
+      <T x={x(widest) + (right ? -10 : 10)} y={y(p.hi[widest]) - 4} anchor={right ? 'end' : 'start'} fill={AQUA} size={11}>
+        {fmtMonth(prov.months[widest])}: {fmtNum(p.harmonized[widest], d(p.harmonized[widest]))}
+      </T>
+      <T x={x(widest) + (right ? -10 : 10)} y={y(p.hi[widest]) + 12} anchor={right ? 'end' : 'start'} fill={TRUST} size={10}>
+        95% {fmtNum(p.lo[widest], d(p.lo[widest]))}–{fmtNum(p.hi[widest], d(p.hi[widest]))}
       </T>
     </svg>
   )

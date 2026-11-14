@@ -1,14 +1,14 @@
 import React, { useEffect, useRef, useState } from 'react'
 
-import { FIGURES, type FigCtx } from './components/MethodFigures'
-import { useData, type Kpi, type Method, type National, type Trust } from '../shared/data/load'
+import { FIGURES, bandProvince, type FigCtx } from './components/MethodFigures'
+import { useData, type Kpi, type Method, type National, type Provinces, type Trust } from '../shared/data/load'
 import { NAIVE, TRUST } from '../shared/lib/colors'
 import { fmtInt, fmtMonth, fmtNum, fmtPctSigned } from '../shared/lib/format'
 import { physics } from '../shared/lib/physics'
 import { usePageMeta } from '../shared/lib/usePageMeta'
 import { useWidth } from '../shared/lib/useWidth'
 
-type Ctx = { method: Method; trust: Trust; nat: National; kpi: Kpi }
+type Ctx = { method: Method; trust: Trust; nat: National; kpi: Kpi; prov: Provinces }
 type Step = { title: string; fns: string[]; body: (c: Ctx) => React.ReactNode }
 
 const arg = (m: Method, flag: string) => m.arguments.find((a) => a.flag === flag)?.default
@@ -83,13 +83,14 @@ const STEPS: Step[] = [
   {
     title: 'Put a band on it',
     fns: ['boot_bands'],
-    body: ({ method }) => {
+    body: ({ method, prov, kpi }) => {
       const sc = arg(method, '--scenarios') as number[] | undefined
       return (
         <>
           {String(arg(method, '--boot'))} bootstrap draws resample whole years and pick one of {sc?.length} detection-limit
           scenarios (× {sc?.map((s) => fmtNum(s, 1)).join(' / ')}). Their 2.5 and 97.5 percentiles give the 95% band carried by
-          every regional and provincial series.
+          every regional and provincial series. Shown: {bandProvince(prov, kpi.windows.test[1]).name} in {kpi.windows.test[1]}, the
+          widest band relative to its peak among the ten provinces with the most fire days.
         </>
       )
     },
@@ -130,25 +131,40 @@ export default function MethodPage() {
   const trust = useData('trust.json')
   const nat = useData('national.json')
   const kpi = useData('kpi.json')
+  const prov = useData('provinces.json')
   const [step, setStep] = useState(0)
   const refs = useRef<(HTMLDivElement | null)[]>([])
-  const ready = method.status === 'ready' && trust.status === 'ready' && nat.status === 'ready' && kpi.status === 'ready'
+  const ready = method.status === 'ready' && trust.status === 'ready' && nat.status === 'ready' && kpi.status === 'ready' && prov.status === 'ready'
 
+  // the figure changes when a step's title reaches 40% of the viewport height (62% on phones, below the sticky figure)
   useEffect(() => {
-    const els = refs.current.filter(Boolean) as HTMLDivElement[]
-    if (!els.length) return
-    const io = new IntersectionObserver(
-      (entries) => {
-        for (const e of entries) if (e.isIntersecting) setStep(Number((e.target as HTMLElement).dataset.step))
-      },
-      { rootMargin: window.innerWidth >= 1024 ? '-45% 0px -45% 0px' : '-60% 0px -30% 0px' }
-    )
-    els.forEach((el) => io.observe(el))
-    return () => io.disconnect()
+    if (!ready) return
+    let raf = 0
+    const update = () => {
+      raf = 0
+      const line = window.innerHeight * (window.innerWidth >= 1024 ? 0.4 : 0.62)
+      let s = 0
+      refs.current.forEach((el, i) => {
+        const h = el?.querySelector('h2')
+        if (h && h.getBoundingClientRect().top <= line) s = i
+      })
+      setStep(s)
+    }
+    const on = () => {
+      if (!raf) raf = requestAnimationFrame(update)
+    }
+    update()
+    window.addEventListener('scroll', on, { passive: true })
+    window.addEventListener('resize', on)
+    return () => {
+      window.removeEventListener('scroll', on)
+      window.removeEventListener('resize', on)
+      if (raf) cancelAnimationFrame(raf)
+    }
   }, [ready])
 
   if (!ready) return <div className="min-h-screen" />
-  const ctx: Ctx = { method: method.data, trust: trust.data, nat: nat.data, kpi: kpi.data }
+  const ctx: Ctx = { method: method.data, trust: trust.data, nat: nat.data, kpi: kpi.data, prov: prov.data }
   const src = method.data.source_url
 
   return (
@@ -223,7 +239,7 @@ function Figure({ ctx, step }: { ctx: Ctx; step: number }) {
   const P = physics(ctx.method)
   const fc: FigCtx = { ...ctx, P, W, H }
   return (
-    <div ref={ref} className="relative w-full" style={{ height: H }}>
+    <div ref={ref} className="relative w-full" style={{ height: H }} data-figure={step + 1}>
       {FIGURES.map((F, i) => (
         <div
           key={i}
