@@ -1,7 +1,7 @@
 import React, { useMemo, useState } from 'react'
 
 import type { BandRow } from '../../shared/components/BandChart'
-import { UNIT, sourceChip, type GridCells, type National, type Provinces, type Trust } from '../../shared/data/load'
+import { sourceChip, type GridCells, type National, type Provinces, type Trust } from '../../shared/data/load'
 import { TRUST, WARN } from '../../shared/lib/colors'
 import { MONTHS_LONG, fmtInt, fmtMonth, fmtNum, fmtPctSigned, fmtSigned } from '../../shared/lib/format'
 import { entityLabel, fold, sameMonthMedian, type Entity } from '../entity'
@@ -73,7 +73,7 @@ export function Panel({ entity, onEntity, month, rows, prov, nat, trust, grid }:
           <>
             <p className="mt-1 flex items-baseline gap-2 tabular-nums">
               <span className="text-4xl font-semibold tracking-tight" style={{ color: TRUST }}>{fmtNum(row.v, d(row.v))}</span>
-              <span className="font-mono text-[11px] text-bone-dim">cell-days · 95% {fmtNum(row.lo, d(row.lo))}–{fmtNum(row.hi, d(row.hi))}</span>
+              <span className="font-mono text-[11px] text-bone-dim">fire days · 95% {fmtNum(row.lo, d(row.lo))}–{fmtNum(row.hi, d(row.hi))}</span>
             </p>
             {med && (
               <p className="mt-2 text-sm text-bone-dim">
@@ -82,7 +82,7 @@ export function Panel({ entity, onEntity, month, rows, prov, nat, trust, grid }:
                 {med.median > 0 && <span className="tabular-nums text-bone"> ({fmtPctSigned((100 * (row.v - med.median)) / med.median, 0)})</span>}
               </p>
             )}
-            {row.gap && <p className="mt-2 border border-dashed px-2 py-1 font-mono text-[10px]" style={{ borderColor: WARN, color: WARN }}>Aqua gap month: VIIRS-filled</p>}
+            {row.gap && <p className="mt-2 inline-block px-1.5 py-0.5 font-mono text-[10px]" style={{ color: WARN, background: 'rgba(255,176,32,0.12)' }}>Aqua gap month · VIIRS-filled</p>}
           </>
         ) : (
           <p className="mt-2 text-sm text-muted">No value for this month.</p>
@@ -99,7 +99,7 @@ export function Panel({ entity, onEntity, month, rows, prov, nat, trust, grid }:
           {p ? (
             <Fact k="95% band width" v={p.band_rel_width_median !== null ? `${fmtNum(100 * p.band_rel_width_median, 0)}% of value` : '—'} note="median month" />
           ) : (
-            <Fact k="10 km cells" v={fmtInt(grid.meta.n_cells)} />
+            <Fact k="10 km squares" v={fmtInt(grid.meta.n_cells)} />
           )}
         </dl>
         <p className="mt-2 font-mono text-[10px] leading-relaxed text-muted">
@@ -146,7 +146,7 @@ export function Panel({ entity, onEntity, month, rows, prov, nat, trust, grid }:
         <summary className="cursor-pointer font-mono text-[11px] text-bone-dim hover:text-bone">About this data</summary>
         <dl className="mt-3 space-y-2 text-xs leading-relaxed text-bone-dim">
           <About k="Sensors" v="NASA FIRMS active fires: MODIS C6.1 on Aqua (1 km) and VIIRS C2 on S-NPP (375 m), afternoon passes." />
-          <About k="Unit" v={`${UNIT}: a 10 × 10 km cell counts once for each local day with at least one detection.`} />
+          <About k="Unit" v="Fire days: a 10 × 10 km square counts once for each local day with at least one afternoon detection (fire-active cell-days on the Method page)." />
           <About k="Period" v={`${fmtMonth(nat.meta.first_month)} – ${fmtMonth(nat.meta.last_month)}; the grid and provinces start with VIIRS in ${fmtMonth(grid.meta.first_month)}.`} />
           <About k="Method" v="VIIRS detections are weighted by the chance Aqua MODIS would have seen them, then calibrated (harmonize_fire_v2.py)." />
           <About k="Uncertainty" v="95% bands for provinces, regions and Vietnam; the 10 km grid shows point estimates." />

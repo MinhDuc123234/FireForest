@@ -10,6 +10,8 @@ import { scaleLinear } from 'd3-scale'
  *  - WARN:    caveats (gap months, orbit drift, FAIL)
  */
 export const INFERNO = ['#1B0C2E', '#6A1B4D', '#C8371F', '#F28C28', '#FFE08A'] as const
+/** The fire end of the same ramp, starting from deep red (map columns and heat): no purple on the map. */
+export const FIRE = ['#5a1610', '#9a2416', '#C8371F', '#F28C28', '#FFE08A'] as const
 export const ACTION = '#FF6A1F'
 export const TRUST = '#3BC9DB'
 export const NAIVE = '#8d8c85'
@@ -25,6 +27,13 @@ const inf = scaleLinear<string>()
 
 /** t in [0, 1] -> inferno hex/rgb string */
 export const inferno = (t: number) => inf(t)
+
+const fireScale = scaleLinear<string>()
+  .domain(FIRE.map((_, i) => i / (FIRE.length - 1)))
+  .range(FIRE as unknown as string[])
+  .clamp(true)
+/** t in [0, 1] -> map fire colour */
+export const fire = (t: number) => fireScale(t)
 
 /** t in [0, 1] -> [r, g, b] in 0..1 (for WebGL) */
 export function infernoRGB(t: number): [number, number, number] {

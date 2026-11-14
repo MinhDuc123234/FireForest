@@ -1,6 +1,7 @@
 /**
- * Hand-written dark MapLibre style on OpenFreeMap vector tiles (OpenMapTiles schema, no API key).
- * Attribution (required): OpenFreeMap © OpenMapTiles, data from OpenStreetMap (ODbL).
+ * Hand-written dark MapLibre style, no API keys:
+ *  - vector basemap: OpenFreeMap (OpenMapTiles schema), © OpenMapTiles, data © OpenStreetMap (ODbL);
+ *  - hillshade: Mapzen Terrain Tiles on AWS Open Data (terrarium encoding).
  *
  * What is deliberately NOT drawn from the basemap:
  *  - no `water_name` layer at all (no sea / gulf names);
@@ -11,13 +12,20 @@
  */
 import type { ExpressionSpecification, LayerSpecification, StyleSpecification } from 'maplibre-gl'
 
-import { INFERNO } from '../lib/colors'
+import { FIRE } from '../lib/colors'
 
 const OFM = 'https://tiles.openfreemap.org'
+const DEM = 'https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png'
 const FONT = ['Noto Sans Regular']
 
 export const LAND = '#121210'
 export const WATER = '#0b1418'
+export const ATTRIBUTION = {
+  basemap:
+    '© <a href="https://openfreemap.org" target="_blank" rel="noreferrer">OpenFreeMap</a> © <a href="https://www.openmaptiles.org/" target="_blank" rel="noreferrer">OpenMapTiles</a> © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">OpenStreetMap</a>',
+  dem: 'terrain <a href="https://registry.opendata.aws/terrain-tiles/" target="_blank" rel="noreferrer">Mapzen/AWS</a>',
+  data: 'NASA FIRMS · geoBoundaries',
+}
 
 /** Sea area east of Vietnam's mainland coast (easternmost mainland point is about 109.46°E). */
 const EAST_SEA: GeoJSON.Polygon = {
@@ -28,6 +36,9 @@ const OUTSIDE_EAST_SEA: ExpressionSpecification = ['!', ['within', EAST_SEA]]
 /** City and town names are drawn only around Vietnam (keeps the map quiet; the East Sea is excluded anyway). */
 const AROUND_VIETNAM: ExpressionSpecification = ['within', { type: 'Polygon', coordinates: [[[101.6, 8], [109.75, 8], [109.75, 23.45], [101.6, 23.45], [101.6, 8]]] }]
 const LATIN_NAME: ExpressionSpecification = ['coalesce', ['get', 'name:latin'], ['get', 'name']]
+/** The four cities named on the home map (OpenStreetMap names). */
+const HERO_CITIES = ['Hà Nội', 'Đà Nẵng', 'Thành phố Hồ Chí Minh', 'Cần Thơ']
+const SHORT_NAME: ExpressionSpecification = ['match', ['get', 'name'], 'Thành phố Hồ Chí Minh', 'TP. Hồ Chí Minh', LATIN_NAME]
 
 const label = (id: string, filter: ExpressionSpecification, minzoom: number, size: number, color: string, extra: Record<string, unknown> = {}): LayerSpecification => ({
   id,
@@ -44,26 +55,48 @@ const label = (id: string, filter: ExpressionSpecification, minzoom: number, siz
 export const FADE = { from: 4.3, to: 5.0 }
 /** Height of the tallest column, metres. */
 export const HMAX_M = 90000
+/** Squares below this many fire days in the month are not drawn (stated in the legends). */
+export const DRAW_MIN = 0.1
 
 const ramp = (stops: readonly string[]): (number | string)[] => stops.flatMap((c, i) => [i / (stops.length - 1), c])
+const norm = (vmax: number): ExpressionSpecification => ['sqrt', ['/', ['min', ['get', 'v'], vmax], vmax]]
 
 /** Columns get shorter as you zoom in, so they never bury the province you are looking at. */
 export function heightExpr(vmax: number, k: number): ExpressionSpecification {
-  const f: ExpressionSpecification = ['sqrt', ['/', ['min', ['get', 'v'], vmax], vmax]]
-  return ['interpolate', ['linear'], ['zoom'], 5, ['*', f, HMAX_M * k], 7, ['*', f, 0.36 * HMAX_M * k], 9, ['*', f, 0.14 * HMAX_M * k]]
+  const f = norm(vmax)
+  return ['interpolate', ['linear'], ['zoom'], 5.6, ['*', f, HMAX_M * k], 7.4, ['*', f, 0.36 * HMAX_M * k], 9, ['*', f, 0.14 * HMAX_M * k]]
 }
 export function colorExpr(vmax: number): ExpressionSpecification {
-  return ['interpolate', ['linear'], ['+', 0.12, ['*', 0.88, ['sqrt', ['/', ['min', ['get', 'v'], vmax], vmax]]]], ...ramp(INFERNO)] as unknown as ExpressionSpecification
+  return ['interpolate', ['linear'], ['+', 0.1, ['*', 0.9, norm(vmax)]], ...ramp(FIRE)] as unknown as ExpressionSpecification
 }
 
 /** Our own sources carry their data inline, so they draw even when the basemap cannot be reached. */
-export function buildStyle(data: Record<'provinces' | 'provinceLabels' | 'islands' | 'cells' | 'cellPoints', GeoJSON.FeatureCollection>): StyleSpecification {
+export function buildStyle(
+  data: Record<'provinces' | 'provinceLabels' | 'islands' | 'cells' | 'cellPoints', GeoJSON.FeatureCollection>,
+  variant: 'hero' | 'explore'
+): StyleSpecification {
+  const hero = variant === 'hero'
+  const exploreLabels: LayerSpecification[] = [
+    label('city-major', ['all', ['==', ['get', 'class'], 'city'], ['<=', ['get', 'rank'], 6], AROUND_VIETNAM], 4.4, 11, '#a9a8a0'),
+    label('city', ['all', ['==', ['get', 'class'], 'city'], ['>', ['get', 'rank'], 6], AROUND_VIETNAM], 6.4, 11, '#a9a8a0'),
+    label('town', ['all', ['==', ['get', 'class'], 'town'], AROUND_VIETNAM], 8, 10, '#75746d'),
+    {
+      id: 'prov-label',
+      type: 'symbol',
+      source: 'provinceLabels',
+      minzoom: 6.1,
+      layout: { 'text-field': ['get', 'name'], 'text-font': FONT, 'text-size': 11, 'text-max-width': 6 },
+      paint: { 'text-color': '#ecebe4', 'text-opacity': 0.75, 'text-halo-color': '#080807', 'text-halo-width': 1.2 },
+    },
+  ]
+  const heroLabels: LayerSpecification[] = [label('city-hero', ['in', ['get', 'name'], ['literal', HERO_CITIES]], 3, 11, '#c9c8c0', { 'text-field': SHORT_NAME })]
   return {
     version: 8,
     glyphs: `${OFM}/fonts/{fontstack}/{range}.pbf`,
     sources: {
-      basemap: { type: 'vector', url: `${OFM}/planet` },
-      provinces: { type: 'geojson', data: data.provinces },
+      basemap: { type: 'vector', url: `${OFM}/planet`, attribution: ATTRIBUTION.basemap },
+      dem: { type: 'raster-dem', tiles: [DEM], encoding: 'terrarium', tileSize: 256, maxzoom: 11, attribution: ATTRIBUTION.dem },
+      provinces: { type: 'geojson', data: data.provinces, attribution: ATTRIBUTION.data },
       provinceLabels: { type: 'geojson', data: data.provinceLabels },
       islands: { type: 'geojson', data: data.islands },
       cells: { type: 'geojson', data: data.cells },
@@ -71,6 +104,18 @@ export function buildStyle(data: Record<'provinces' | 'provinceLabels' | 'island
     },
     layers: [
       { id: 'land', type: 'background', paint: { 'background-color': LAND } },
+      {
+        id: 'hillshade',
+        type: 'hillshade',
+        source: 'dem',
+        paint: {
+          'hillshade-exaggeration': ['interpolate', ['linear'], ['zoom'], 3, 0.75, 6, 0.6, 9, 0.45],
+          'hillshade-shadow-color': 'rgba(0,0,0,0.95)',
+          'hillshade-highlight-color': 'rgba(150,180,200,0.26)',
+          'hillshade-accent-color': 'rgba(8,16,22,0.9)',
+          'hillshade-illumination-direction': 315,
+        },
+      },
       { id: 'water', type: 'fill', source: 'basemap', 'source-layer': 'water', paint: { 'fill-color': WATER } },
       {
         id: 'border',
@@ -78,34 +123,34 @@ export function buildStyle(data: Record<'provinces' | 'provinceLabels' | 'island
         source: 'basemap',
         'source-layer': 'boundary',
         filter: ['all', ['==', ['get', 'admin_level'], 2], ['!=', ['get', 'maritime'], 1], ['!=', ['get', 'disputed'], 1]],
-        paint: { 'line-color': 'rgba(236,235,228,0.22)', 'line-width': 0.8 },
+        paint: { 'line-color': 'rgba(236,235,228,0.16)', 'line-width': 0.7 },
       },
       // --- our own geometry
-      { id: 'prov-fill', type: 'fill', source: 'provinces', paint: { 'fill-color': 'rgba(236,235,228,0.035)' } },
+      { id: 'prov-fill', type: 'fill', source: 'provinces', paint: { 'fill-color': 'rgba(236,235,228,0.02)' } },
       {
         id: 'prov-line',
         type: 'line',
         source: 'provinces',
-        paint: { 'line-color': 'rgba(236,235,228,0.2)', 'line-width': ['interpolate', ['linear'], ['zoom'], 4, 0.4, 8, 1] },
+        paint: { 'line-color': 'rgba(236,235,228,0.16)', 'line-width': ['interpolate', ['linear'], ['zoom'], 4, 0.35, 8, 0.9] },
       },
       {
         id: 'cells-flat',
         type: 'fill',
         source: 'cells',
         minzoom: FADE.from,
-        paint: { 'fill-color': 'rgba(236,235,228,0.05)', 'fill-opacity': ['interpolate', ['linear'], ['zoom'], FADE.from, 0, FADE.to, 1] },
+        paint: { 'fill-color': 'rgba(0,0,0,0)' },
       },
       {
         id: 'heat',
         type: 'heatmap',
         source: 'cellPoints',
         maxzoom: FADE.to + 0.2,
-        filter: ['>', ['get', 'v'], 0],
+        filter: ['>=', ['get', 'v'], DRAW_MIN],
         paint: {
           'heatmap-weight': ['get', 'w'],
           'heatmap-intensity': ['interpolate', ['linear'], ['zoom'], 2, 0.5, 5, 1.1],
           'heatmap-radius': ['interpolate', ['exponential', 2], ['zoom'], 2, 1.6, 5, 11, 6, 20],
-          'heatmap-color': ['interpolate', ['linear'], ['heatmap-density'], 0, 'rgba(27,12,46,0)', 0.08, INFERNO[0], 0.3, INFERNO[1], 0.55, INFERNO[2], 0.8, INFERNO[3], 1, INFERNO[4]],
+          'heatmap-color': ['interpolate', ['linear'], ['heatmap-density'], 0, 'rgba(90,22,16,0)', 0.1, 'rgba(90,22,16,0.55)', 0.3, FIRE[1], 0.55, FIRE[2], 0.8, FIRE[3], 1, FIRE[4]],
           'heatmap-opacity': ['interpolate', ['linear'], ['zoom'], FADE.from, 0.95, FADE.to, 0],
         },
       },
@@ -114,13 +159,20 @@ export function buildStyle(data: Record<'provinces' | 'provinceLabels' | 'island
         type: 'fill-extrusion',
         source: 'cells',
         minzoom: FADE.from,
-        filter: ['>', ['get', 'v'], 0],
+        filter: ['>=', ['get', 'v'], DRAW_MIN],
         paint: {
-          'fill-extrusion-color': INFERNO[2],
+          'fill-extrusion-color': FIRE[2],
           'fill-extrusion-height': 0,
-          'fill-extrusion-opacity': ['interpolate', ['linear'], ['zoom'], FADE.from, 0, FADE.to, 0.94],
+          'fill-extrusion-opacity': ['interpolate', ['linear'], ['zoom'], FADE.from, 0, FADE.to, 0.96],
           'fill-extrusion-vertical-gradient': true,
         },
+      },
+      {
+        id: 'prov-hover',
+        type: 'line',
+        source: 'provinces',
+        filter: ['==', ['get', 'name'], ''],
+        paint: { 'line-color': 'rgba(236,235,228,0.6)', 'line-width': 1.2 },
       },
       {
         id: 'prov-selected',
@@ -130,19 +182,8 @@ export function buildStyle(data: Record<'provinces' | 'provinceLabels' | 'island
         paint: { 'line-color': '#ecebe4', 'line-width': 2 },
       },
       { id: 'islands', type: 'circle', source: 'islands', paint: { 'circle-radius': 1.8, 'circle-color': 'rgba(236,235,228,0.85)' } },
-      // --- labels
-      label('country', ['==', ['get', 'class'], 'country'], 2, 10, '#75746d', { 'text-transform': 'uppercase', 'text-letter-spacing': 0.15, 'text-field': ['coalesce', ['get', 'name_en'], LATIN_NAME] }),
-      label('city-major', ['all', ['==', ['get', 'class'], 'city'], ['<=', ['get', 'rank'], 6], AROUND_VIETNAM], 4.4, 11, '#a9a8a0'),
-      label('city', ['all', ['==', ['get', 'class'], 'city'], ['>', ['get', 'rank'], 6], AROUND_VIETNAM], 6.4, 11, '#a9a8a0'),
-      label('town', ['all', ['==', ['get', 'class'], 'town'], AROUND_VIETNAM], 8, 10, '#75746d'),
-      {
-        id: 'prov-label',
-        type: 'symbol',
-        source: 'provinceLabels',
-        minzoom: 6.1,
-        layout: { 'text-field': ['get', 'name'], 'text-font': FONT, 'text-size': 11, 'text-max-width': 6 },
-        paint: { 'text-color': '#ecebe4', 'text-opacity': 0.75, 'text-halo-color': '#080807', 'text-halo-width': 1.2 },
-      },
+      // --- labels: the home map names four cities only; the explorer names cities around Vietnam
+      ...(hero ? heroLabels : exploreLabels),
     ],
   }
 }

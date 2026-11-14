@@ -8,10 +8,11 @@ import { SeriesChart, type Layers } from '../shared/components/SeriesChart'
 import { SourceChip } from '../shared/components/SourceChip'
 import { YearMonthHeatmap } from '../shared/components/YearMonthHeatmap'
 import { gridFile, loadGridYear, useData } from '../shared/data/load'
-import { WARN, inferno } from '../shared/lib/colors'
+import { WARN } from '../shared/lib/colors'
 import { fmtInt, fmtMonth, fmtNum } from '../shared/lib/format'
 import { usePageMeta } from '../shared/lib/usePageMeta'
-import { FireMap, type Focus } from '../shared/map/FireMap'
+import { FireMap, MapLegend, type Focus } from '../shared/map/FireMap'
+import { DRAW_MIN } from '../shared/map/mapStyle'
 import { Panel } from './components/Panel'
 import { entityLabel, entityRegion, provinceRows, regionRows, type Entity } from './entity'
 
@@ -21,7 +22,6 @@ const MODE_LAYERS: Record<Mode, Layers> = {
   harmonized: { aquaPre: 1, aquaPost: 1, naive: 0, naiveReveal: 1, harm: 1, harmReveal: 1, markers: 1, jumpNote: 0 },
   compare: { aquaPre: 1, aquaPost: 1, naive: 1, naiveReveal: 1, harm: 1, harmReveal: 1, markers: 1, jumpNote: 0 },
 }
-const LEGEND_TICKS = [1, 4, 9]
 const STEP_MS = 900
 
 function useIsWide() {
@@ -90,7 +90,7 @@ export default function Explore() {
   const values = frames && frames.year === year ? frames.out[Number(month.slice(5)) - 1] : null
   const stats = useMemo(() => {
     let active = 0, total = 0
-    if (values) for (const v of values) if (v > 0) { active++; total += v }
+    if (values) for (const v of values) { total += v; if (v >= DRAW_MIN) active++ }
     return { active, total }
   }, [values])
 
@@ -138,10 +138,11 @@ export default function Explore() {
             values={values}
             vmax={vmax}
             variant="explore"
+            monthLabel={fmtMonth(month)}
             focus={focus}
             padding={padding}
             onSelectProvince={(name) => setEntity(name ? { kind: 'province', name } : { kind: 'all' })}
-            className="absolute inset-0"
+            className="ff-explore absolute inset-0"
           />
         )}
 
@@ -149,31 +150,24 @@ export default function Explore() {
         {ready && (
           <div className="pointer-events-none absolute left-14 top-3 flex max-w-[calc(100%-4.5rem)] flex-wrap items-center gap-x-3 gap-y-1.5 lg:max-w-[calc(100%-26rem)]">
             <p className="border border-line bg-ink/85 px-2.5 py-1 font-mono text-[11px] tabular-nums text-bone">
-              {fmtMonth(month)} · {fmtInt(stats.active)} active cells · {fmtInt(stats.total)} cell-days
+              {fmtMonth(month)} · {fmtInt(stats.active)} squares with fire · {fmtInt(stats.total)} fire days
               <span className="hidden text-muted sm:inline"> · point estimate · NASA FIRMS</span>
             </p>
-            {(gapMonth || drift) && (
-              <p className="border border-dashed bg-ink/85 px-2 py-1 font-mono text-[10px]" style={{ borderColor: WARN, color: WARN }}>
-                {gapMonth ? 'Aqua gap month: VIIRS-filled' : `After ${calibEnd}: calibration extrapolated (Aqua drift)`}
-              </p>
+            {drift && (
+              <span className="whitespace-nowrap px-1.5 py-0.5 font-mono text-[10px]" style={{ color: WARN, background: 'rgba(255,176,32,0.12)' }}>
+                Aqua drift after {calibEnd} · extrapolated
+              </span>
+            )}
+            {gapMonth && (
+              <span className="whitespace-nowrap px-1.5 py-0.5 font-mono text-[10px]" style={{ color: WARN, background: 'rgba(255,176,32,0.12)' }}>
+                Aqua gap month · VIIRS-filled
+              </span>
             )}
           </div>
         )}
 
         {/* legend */}
-        {ready && (
-          <div className="pointer-events-none absolute bottom-12 left-3 hidden w-48 border border-line bg-ink/85 p-2.5 font-mono text-[10px] text-muted sm:block">
-            <div className="mb-1 whitespace-nowrap text-bone-dim">cell-days per cell · √ scale</div>
-            <div className="h-1.5" style={{ background: `linear-gradient(90deg, ${Array.from({ length: 9 }, (_, i) => inferno(0.12 + (0.88 * i) / 8)).join(',')})` }} />
-            <div className="relative mt-1 h-3">
-              <span className="absolute left-0">0</span>
-              {LEGEND_TICKS.filter((t) => t < vmax).map((t) => (
-                <span key={t} className="absolute -translate-x-1/2" style={{ left: `${Math.sqrt(t / vmax) * 100}%` }}>{t}</span>
-              ))}
-              <span className="absolute right-0">{fmtNum(vmax, 1)}</span>
-            </div>
-          </div>
-        )}
+        {ready && <MapLegend vmax={vmax} className="pointer-events-none absolute bottom-10 left-3 hidden w-[17.5rem] border border-line bg-ink/85 p-2.5 sm:block" />}
 
         {/* panel: floating on desktop, sheet on phones */}
         {ready && (wide || panel) && (
@@ -224,7 +218,7 @@ export default function Explore() {
                 <div className="mt-3">
                   <YearMonthHeatmap rows={rowsFull} current={month} selectableFrom={months[0]} viirsStart={nat.data.meta.viirs_start} onPick={(m) => setMi(months.indexOf(m))} />
                 </div>
-                <SourceChip csv={entity.kind === 'province' ? 'province_monthly_harmonized.csv' : 'monthly_series.csv'} className="mt-1" />
+                <SourceChip plain csv={entity.kind === 'province' ? 'province_monthly_harmonized.csv' : 'monthly_series.csv'} className="mt-1" />
               </div>
               <div className="min-w-0">
                 {region ? (
@@ -244,20 +238,20 @@ export default function Explore() {
                       />
                     </div>
                     <div className="mt-3">
-                      <SeriesChart data={nat.data} region={region} layers={MODE_LAYERS[mode]} calibEnd={calibEnd} height={300} crosshair ariaLabel={`Monthly fire-active 10 km cell-days, ${region}`} />
+                      <SeriesChart data={nat.data} region={region} layers={MODE_LAYERS[mode]} calibEnd={calibEnd} height={300} crosshair yLabel="fire days / month" ariaLabel={`Monthly fire days, ${region}`} />
                     </div>
-                    <SourceChip csv="monthly_series.csv" className="mt-1" extra={region} />
+                    <SourceChip plain csv="monthly_series.csv" className="mt-1" extra={region} />
                   </>
                 ) : (
                   <>
                     <h3 className="font-mono text-[11px] text-muted">Monthly series with 95% band · click to move the map</h3>
                     <div className="mt-3">
-                      <BandChart rows={rows} height={300} playhead={mi} onPick={setMi} ariaLabel={`Harmonized monthly fire-active 10 km cell-days, ${entityLabel(entity)}`} />
+                      <BandChart rows={rows} height={300} playhead={mi} onPick={setMi} yLabel="fire days / month" ariaLabel={`Harmonized monthly fire days, ${entityLabel(entity)}`} />
                     </div>
                     <p className="mt-2 max-w-[60ch] text-xs leading-relaxed text-muted">
                       Province series start with VIIRS in {fmtMonth(months[0])}. Raw, naive and Aqua-observed series exist for Vietnam and the regions only.
                     </p>
-                    <SourceChip csv="province_monthly_harmonized.csv" className="mt-1" />
+                    <SourceChip plain csv="province_monthly_harmonized.csv" className="mt-1" />
                   </>
                 )}
               </div>
@@ -297,7 +291,7 @@ export default function Explore() {
             </div>
             <div className="min-w-0">
               <div className="mb-0.5 flex justify-between font-mono text-[10px] text-muted">
-                <span className="truncate">{entityLabel(entity)} · harmonized cell-days / month · drag to scrub</span>
+                <span className="truncate">{entityLabel(entity)} · fire days per month · drag to scrub</span>
               </div>
               <BandChart rows={rows} height={56} compact playhead={mi} onPick={(i) => { setPlaying(false); setMi(i) }} ariaLabel={`Timeline: harmonized monthly series, ${entityLabel(entity)}`} />
             </div>

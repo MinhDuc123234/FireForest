@@ -1,6 +1,6 @@
 import React from 'react'
 
-import { Link } from 'react-router-dom'
+import { Link, useLocation } from 'react-router-dom'
 
 import { Logo, PAGES } from './SiteNav'
 import { FireStripes } from '../../shared/components/FireStripes'
@@ -14,20 +14,27 @@ const CHALLENGE = 'https://www.spaceappschallenge.org/2026/challenges/harmonizat
 const TEAM: string[] = []
 
 export function ThermalFooter() {
+  // the fire stripes close the home page only
+  const home = useLocation().pathname === '/'
   return (
     <footer className="border-t border-line">
-      <div className="mx-auto max-w-[1280px] px-5 pb-10 pt-20 md:px-10 md:pt-24">
-        <p className="max-w-[30ch] text-[clamp(1.5rem,3vw,2.25rem)] font-medium leading-tight tracking-[-0.02em] text-bone">
-          <DataValue file="national.json" pick={(d) => fmtInt(d.months.length)} /> months of Vietnam's fires, one sensor scale.
-        </p>
-        <FireStripes height={72} className="mt-8" />
+      <div className={`mx-auto max-w-[1280px] px-5 pb-10 md:px-10 ${home ? 'pt-20 md:pt-24' : 'pt-10'}`}>
+        {home && (
+          <>
+            <p className="max-w-[30ch] text-[clamp(1.5rem,3vw,2.25rem)] font-medium leading-tight tracking-[-0.02em] text-bone">
+              <DataValue file="national.json" pick={(d) => fmtInt(d.months.length)} /> months of Vietnam's fires, one sensor scale.
+            </p>
+            <FireStripes height={72} className="mt-8" />
+          </>
+        )}
 
-        <div className="mt-16 grid gap-10 border-t border-line pt-8 text-sm md:grid-cols-12 md:gap-8">
+        <div className={`grid gap-10 text-sm md:grid-cols-12 md:gap-8 ${home ? 'mt-16 border-t border-line pt-8' : ''}`}>
           <div className="md:col-span-5">
             <Logo />
             <p className="mt-4 max-w-[44ch] text-bone-dim">
               NASA Space Apps Challenge 2026 · Harmonization of MODIS and VIIRS Hot Spots. Harmonized active-fire record
-              for Vietnam from NASA FIRMS (MODIS C6.1, VIIRS C2). Basemap © OpenFreeMap, © OpenMapTiles, data from OpenStreetMap.
+              for Vietnam from NASA FIRMS (MODIS C6.1, VIIRS C2). Basemap © OpenFreeMap, © OpenMapTiles, data from OpenStreetMap;
+              terrain from Mapzen Terrain Tiles on AWS Open Data.
             </p>
           </div>
           <div className="md:col-span-2">

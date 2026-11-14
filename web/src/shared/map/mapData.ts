@@ -19,7 +19,7 @@ export type MapGeometry = {
   regionBounds: Map<string, Bounds>
   /** mainland + archipelagos */
   bounds: Bounds
-  /** sample of points that must stay in view at national scale: cells + every island */
+  /** sample of mainland cells: the national camera frames these */
   fitPoints: [number, number][]
   mainland: Bounds
 }
@@ -95,9 +95,6 @@ export function prepare(grid: GridCells, geo: ProvincesGeo): MapGeometry {
       grow(bounds, far[1][0], far[1][1])
     }
   }
-  const fitPoints: [number, number][] = [
-    ...grid.cells.filter((_, i) => i % 20 === 0).map((c) => [c[2], c[1]] as [number, number]),
-    ...islands.features.map((f) => f.geometry.coordinates as [number, number]),
-  ]
+  const fitPoints: [number, number][] = grid.cells.filter((_, i) => i % 12 === 0).map((c) => [c[2], c[1]] as [number, number])
   return { cells, points, provinces: geo as unknown as GeoJSON.FeatureCollection, provinceLabels, islands, archipelagos, provinceBounds, regionBounds, bounds, mainland, fitPoints }
 }
