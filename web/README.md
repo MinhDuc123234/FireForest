@@ -24,6 +24,23 @@ the first interpreter that can import pandas (`python`, then `py -3`) or with
 
 `npm run build` type-checks (`tsc --noEmit`) and then builds into `web/dist/`.
 
+## Pages
+
+Hash-routed (`react-router-dom` HashRouter), so any static host works and a refresh never 404s.
+
+| Route | Content |
+| --- | --- |
+| `#/` | Home: hero map, the 2012 jump (scrollytelling), where and when Vietnam burns, why trust it |
+| `#/explore` | Full-screen map: place search, province card, top 10, timeline, charts drawer, CSV |
+| `#/method` | Five pipeline steps, observation operator diagram, splice rule, docstring quotes |
+| `#/trust` | Held-out validation, R table, Aqua overpass, `check_outputs.py`, limits, data, sources |
+
+The map (`src/shared/map/`) is MapLibre GL JS on OpenFreeMap vector tiles (no API key; attribution
+© OpenFreeMap, © OpenMapTiles, data from OpenStreetMap). The style is written by hand: no sea names,
+no maritime or disputed boundaries, and no basemap labels in the East Sea; Hoàng Sa and Trường Sa are
+labelled by the app from `provinces.geojson`. If the tiles cannot be reached, the provinces and fire
+cells still draw on a plain background.
+
 ## Data files (`public/data/`)
 
 | File | Built from | Content |
