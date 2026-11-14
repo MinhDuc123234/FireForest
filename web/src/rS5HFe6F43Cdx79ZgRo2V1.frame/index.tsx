@@ -39,7 +39,7 @@ function useIsWide() {
  * timeline (month scrubber synchronised with the series) · "Charts" drawer.
  */
 export default function Explore() {
-  usePageMeta('Explore · FireForest', 'Interactive map of harmonized fire activity in Vietnam per 10 km cell, province and month, from 2012 to today.')
+  usePageMeta('HotSpot · Explore', 'HotSpot · Interactive map of harmonized fire activity in Vietnam per 10 km cell, province and month, from 2012 to today.')
   const grid = useData('grid_cells.json')
   const geo = useData('provinces.geojson')
   const prov = useData('provinces.json')

@@ -124,8 +124,8 @@ const STEPS: Step[] = [
 /** /method: one scrollytelling sequence, then the pipeline's own words. */
 export default function MethodPage() {
   usePageMeta(
-    'Method · FireForest',
-    'How VIIRS detections are converted to MODIS-equivalent fire-active 10 km cell-days: filters, observation operator, calibration, uncertainty and a held-out test.'
+    'HotSpot · Method',
+    'HotSpot · How VIIRS detections are converted to MODIS-equivalent fire-active 10 km cell-days: filters, observation operator, calibration, uncertainty and a held-out test.'
   )
   const method = useData('method.json')
   const trust = useData('trust.json')

@@ -59,7 +59,7 @@ export function Panel({ entity, onEntity, month, rows, prov, nat, trust, grid, v
       return base.join(',')
     })
     const src = sourceChip(entity.kind === 'province' ? 'out/province_monthly_harmonized.csv' : 'out/monthly_series.csv')
-    download(`fireforest-${fold(name).replace(/\s+/g, '-')}.csv`, [`# ${src} · ${name} · lo/hi = 95% band`, header, ...body].join('\n'))
+    download(`hotspot-${fold(name).replace(/\s+/g, '-')}.csv`, [`# ${src} · ${name} · lo/hi = 95% band`, header, ...body].join('\n'))
   }
 
   return (

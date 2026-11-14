@@ -7,7 +7,7 @@ import { TrustTeaser } from './components/TrustTeaser'
 import { usePageMeta } from '../shared/lib/usePageMeta'
 
 export const args = {
-  title: 'FireForest',
+  title: 'HotSpot',
   subtitle: 'One comparable fire history, many local decisions.',
 }
 
@@ -25,8 +25,8 @@ type Props = Partial<typeof args>
 export default function Home(props: Props) {
   const { title, subtitle } = { ...args, ...props }
   usePageMeta(
-    'FireForest · One comparable fire history for Vietnam',
-    'Two NASA sensors, MODIS and VIIRS, joined into one comparable record of fire activity in Vietnam from 2003 to today.'
+    'HotSpot · One comparable fire history for Vietnam',
+    'HotSpot · Two NASA sensors, MODIS and VIIRS, joined into one comparable record of fire activity in Vietnam from 2003 to today.'
   )
   return (
     <>

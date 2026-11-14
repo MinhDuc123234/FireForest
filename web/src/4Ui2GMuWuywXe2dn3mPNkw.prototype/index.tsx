@@ -36,7 +36,7 @@ function Reading() {
  * Four pages behind a hash router (#/explore, #/method, #/trust): any static host serves
  * index.html for every route, so a refresh can never 404.
  */
-export default function FireForest() {
+export default function HotSpot() {
   return (
     <HashRouter>
       <ScrollToTop />

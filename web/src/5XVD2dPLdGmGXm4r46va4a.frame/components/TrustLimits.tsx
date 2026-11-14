@@ -423,7 +423,7 @@ function Sources() {
     ['Sofiev & Kouznetsov (2026)', 'MODIS detection-limit anchors used by the observation operator', ''],
     ['OpenFreeMap basemap', '© OpenMapTiles, data © OpenStreetMap contributors (ODbL); no API key', 'https://openfreemap.org/'],
     ['Mapzen Terrain Tiles', 'hillshade, AWS Open Data (SRTM, GMTED2010, ETOPO1)', 'https://registry.opendata.aws/terrain-tiles/'],
-    ['FireForest repository', 'pipeline, checks and this site', REPO],
+    ['HotSpot repository', 'pipeline, checks and this site', REPO],
   ]
   return (
     <div>

@@ -1,4 +1,6 @@
-# FireForest web
+# HotSpot web
+
+Front end of HotSpot. Source repository: https://github.com/MinhDuc123234/FireForest
 
 Static front end for the MODIS/VIIRS harmonized fire record of Vietnam (NASA Space Apps 2026,
 "Harmonization of MODIS and VIIRS Hot Spots"). React 18 + Vite + Tailwind 4.

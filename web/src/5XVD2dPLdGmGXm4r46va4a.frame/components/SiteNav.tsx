@@ -9,11 +9,11 @@ export const PAGES = [
 
 export function Logo() {
   return (
-    <Link to="/" className="flex shrink-0 items-center gap-2.5" aria-label="FireForest, home">
+    <Link to="/" className="flex shrink-0 items-center gap-2.5" aria-label="HotSpot, home">
       <span className="relative grid h-6 w-6 place-items-center border border-bone/40">
         <span className="h-1.5 w-1.5 rounded-full bg-ember" />
       </span>
-      <span className="whitespace-nowrap text-sm font-semibold tracking-tight">FireForest</span>
+      <span className="whitespace-nowrap text-sm font-semibold tracking-tight">HotSpot</span>
     </Link>
   )
 }
