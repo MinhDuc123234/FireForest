@@ -414,6 +414,66 @@ def count_filters(data_dir, viirs_conf, modis_min_conf, target, first_month, las
     return out
 
 
+GLOBAL_MIN_CONF = 30   # same lower bound as the pipeline's MODIS confidence filter (--modis-min-conf default)
+SATELLITE = {"T": "Terra", "A": "Aqua", "Terra": "Terra", "Aqua": "Aqua"}
+
+
+def export_global_fires(path, min_conf=GLOBAL_MIN_CONF):
+    """FIRMS global active-fire CSV (MODIS C6.1, 24 h) -> [lon, lat, frp] for the home intro globe.
+
+    Keeps confidence >= min_conf and, when a `type` column exists, type 0 (presumed vegetation fire).
+    The time window is read from the file itself (acq_date + acq_time, UTC)."""
+    rows = read_csv(path)
+    if not rows:
+        die(f"{path}: no rows")
+    cols = set(rows[0])
+    need = {"latitude", "longitude", "frp", "confidence", "acq_date", "acq_time"}
+    if need - cols:
+        die(f"{path}: missing columns {sorted(need - cols)}")
+    pts, stamps, sats, versions = [], [], set(), set()
+    dropped_conf = dropped_type = 0
+    for r in rows:
+        c = num(r["confidence"])
+        if c is None or c < min_conf:
+            dropped_conf += 1
+            continue
+        if "type" in cols and str(r["type"]).strip() != "0":
+            dropped_type += 1
+            continue
+        lon, lat, frp = num(r["longitude"]), num(r["latitude"]), num(r["frp"])
+        if lon is None or lat is None:
+            continue
+        pts.append([round(lon, 2), round(lat, 2), round(frp or 0.0, 2)])
+        stamps.append(f"{r['acq_date']}T{r['acq_time'].strip().zfill(4)[:2]}:{r['acq_time'].strip().zfill(4)[2:]}Z")
+        if r.get("satellite"):
+            sats.add(SATELLITE.get(r["satellite"].strip(), r["satellite"].strip()))
+        if r.get("version"):
+            versions.add(r["version"].strip())
+    if not pts:
+        die(f"{path}: no detections left after the filters")
+    pts.sort(key=lambda q: q[2])                    # brightest drawn last
+    return {
+        "meta": {
+            "generator": GENERATOR,
+            "source": "NASA FIRMS",
+            "product": "MODIS C6.1",
+            "coverage": "global",
+            "window": "24h",
+            "versions": sorted(versions),
+            "satellites": sorted(sats),
+            "time_start_utc": min(stamps),
+            "time_end_utc": max(stamps),
+            "n_rows": len(rows),
+            "n_points": len(pts),
+            "filters": {"confidence_min": min_conf, "type": "0 only" if "type" in cols else "no type column",
+                        "dropped_confidence": dropped_conf, "dropped_type": dropped_type},
+            "columns": ["lon", "lat", "frp_MW"],
+            "rounding": "2 decimals",
+        },
+        "points": pts,
+    }
+
+
 def pathlib_glob(directory, pattern):
     return [str(x) for x in Path(directory).glob(pattern)]
 
@@ -513,6 +573,8 @@ def main():
     ap.add_argument("--simplify", type=float, default=0.004, help="Douglas-Peucker tolerance in degrees")
     ap.add_argument("--skip-checks", action="store_true", help="do not run check_outputs.py")
     ap.add_argument("--data", default="data/CSV", help="raw FIRMS CSVs, read only, for the filter counts on /method")
+    ap.add_argument("--global-fires", default=None,
+                    help="optional FIRMS global active-fire CSV (MODIS C6.1, 24 h) -> global_fires.json for the home intro")
     a = ap.parse_args()
     for s in (sys.stdout, sys.stderr):              # Windows consoles default to cp1252; names have diacritics
         try:
@@ -924,6 +986,12 @@ def main():
                                               "note": "Parsed from the pipeline source with ast; never imported. "
                                                       "filter_counts: raw FIRMS CSVs counted through prep()'s filters."},
                                      **pipe}, written)
+    gf = None
+    if a.global_fires:
+        print("      global fires from", a.global_fires, "(read only)")
+        gf = export_global_fires(a.global_fires)
+        write_json(web / "global_fires.json", gf, written)
+
     chk = None
     if not a.skip_checks:
         py = find_python([a.check_python] if a.check_python else None)
@@ -949,6 +1017,10 @@ def main():
     for n, k, b in offshore:
         print(f"  offshore parts in {n}: {k} polygons, bbox {b}")
     print(f"\nProvinces: {len(plist)} | grid cells: {len(order)} | grid years: {min(by_year)}-{max(by_year)}")
+    if gf:
+        g = gf["meta"]
+        print(f"Global fires: {g['n_points']:,} of {g['n_rows']:,} detections kept, "
+              f"{g['time_start_utc']} to {g['time_end_utc']}, satellites {', '.join(g['satellites'])}")
     if chk:
         print(f"check_outputs.py: {chk['n_pass']} PASS / {chk['n_fail']} FAIL, exit {chk['exit_code']}, "
               f"last line: {chk['summary']!r}")
