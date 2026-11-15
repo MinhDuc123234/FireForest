@@ -1,42 +1,39 @@
 import React from 'react'
 
-import { SiteNav } from './components/SiteNav'
 import { Hero } from './components/Hero'
-import { Methodology } from './components/Methodology'
 import { Harmonization } from './components/Harmonization'
 import { SeasonalTrends } from './components/SeasonalTrends'
-import { ApiAccess } from './components/ApiAccess'
-import { ThermalFooter } from './components/ThermalFooter'
+import { TrustTeaser } from './components/TrustTeaser'
+import { usePageMeta } from '../shared/lib/usePageMeta'
 
 export const args = {
-  titleLine1: 'Earth Fire &',
-  titleLine2: 'Surface Intelligence',
-  chartMode: 'compare',
-  apiFormState: 'idle',
+  title: 'HotSpot',
+  subtitle: 'One comparable fire history, many local decisions.',
 }
 
 export const argTypes = {
-  titleLine1: { control: 'text' },
-  titleLine2: { control: 'text' },
-  chartMode: { control: 'radio', options: ['raw', 'harmonized', 'compare'] },
-  apiFormState: { control: 'radio', options: ['idle', 'submitted'] },
+  title: { control: 'text' },
+  subtitle: { control: 'text' },
 }
 
-type Props = Partial<typeof args> & { onExploreDashboard?: () => void }
+type Props = Partial<typeof args>
 
+/**
+ * Home: five screens, plain language. Hero map · the 2012 jump · where and when · why trust it ·
+ * fire stripes + footer (the footer is part of the page shell).
+ */
 export default function Home(props: Props) {
-  const { titleLine1, titleLine2, chartMode, apiFormState, onExploreDashboard } = { ...args, ...props }
+  const { title, subtitle } = { ...args, ...props }
+  usePageMeta(
+    'HotSpot · One comparable fire history for Vietnam',
+    'HotSpot · Two NASA sensors, MODIS and VIIRS, joined into one comparable record of fire activity in Vietnam from 2003 to today.'
+  )
   return (
-    <div className="bg-ink text-bone">
-      <SiteNav onDashboard={onExploreDashboard} />
-      <main>
-        <Hero line1={titleLine1} line2={titleLine2} onExplore={onExploreDashboard} />
-        <Methodology />
-        <Harmonization initialMode={chartMode as 'raw' | 'harmonized' | 'compare'} />
-        <SeasonalTrends />
-        <ApiAccess initialState={apiFormState as 'idle' | 'submitted'} />
-      </main>
-      <ThermalFooter onDashboard={onExploreDashboard} />
-    </div>
+    <>
+      <Hero title={title} subtitle={subtitle} />
+      <Harmonization />
+      <SeasonalTrends />
+      <TrustTeaser />
+    </>
   )
 }

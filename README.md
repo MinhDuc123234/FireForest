@@ -76,6 +76,16 @@ cd <repo-name>
 pip install -r requirements.txt
 ```
 
+### Run the web dashboard
+
+```bash
+cd web
+npm install
+npm run dev
+```
+
+The burning calendar and Vietnam map use generated harmonized data copied from `out/` into `web/public/data/`.
+
 ## 📂 Data
 
 - [NASA FIRMS](https://firms.modaps.eosdis.nasa.gov/): MODIS (~1 km) and VIIRS (~375 m) active fires

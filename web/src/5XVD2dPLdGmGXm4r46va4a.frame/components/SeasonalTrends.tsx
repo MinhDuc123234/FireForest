@@ -1,93 +1,109 @@
-import React, { useMemo } from 'react'
+import React, { useState } from 'react'
+import { Link } from 'react-router-dom'
+import { scaleLinear } from 'd3-scale'
 
-import { ScanFrame } from '../../shared/components/ScanFrame'
-import { DETECTIONS, MONTHS, YEARS } from '../../shared/data/fires'
+import { Segmented } from '../../shared/components/Segmented'
+import { SourceChip } from '../../shared/components/SourceChip'
+import { useData, type Region, type SeasonalRow } from '../../shared/data/load'
+import { AQUA, GRID, fire } from '../../shared/lib/colors'
+import { MONTHS, MONTHS_LONG, fmtInt, fmtMonth, fmtNum } from '../../shared/lib/format'
+import { useWidth } from '../../shared/lib/useWidth'
 
-const PHASES = [
-  {
-    month: 0,
-    phase: 'Early dry season',
-    note: 'Canals still hold water; first fires appear at the reed margins.',
-    src: 'https://cdn.magicpatterns.com/patterns/generated-images/a5ddfa05-753b-4fd6-9ecc-412e4cd78397.jpg',
-    offset: 'md:mt-0',
-  },
-  {
-    month: 2,
-    phase: 'Peak burn',
-    note: 'Peat dries out and grass fires spread fastest — most detections land here.',
-    src: 'https://cdn.magicpatterns.com/patterns/generated-images/bfbba48a-1c9b-4871-a560-b2eba11e64a5.jpg',
-    offset: 'md:mt-24',
-  },
-  {
-    month: 4,
-    phase: 'Scar & regrowth',
-    note: 'First rains; burn scars stay visible while new grass comes through.',
-    src: 'https://cdn.magicpatterns.com/patterns/generated-images/d240ce5e-38b2-49c5-beef-b1d585d46ddb.jpg',
-    offset: 'md:mt-10',
-  },
-  {
-    month: 8,
-    phase: 'Flood season',
-    note: 'The Mekong floods the park. Detections drop to almost none.',
-    src: 'https://cdn.magicpatterns.com/patterns/generated-images/bb09a363-5fa0-4100-b85a-6088750674f5.jpg',
-    offset: 'md:mt-36',
-  },
-]
+const SHARE_LABEL_MIN = 12 // label months holding at least this % of the year
+const regionPhrase = (r: Region) => (r === 'Vietnam' ? 'nationally' : `in the ${r}`)
 
+/** Home block "Where and when Vietnam burns": the seasonal calendar plus the three provinces that burn most. */
 export function SeasonalTrends() {
-  const perMonth = useMemo(() => {
-    const counts = Array(12).fill(0)
-    for (const d of DETECTIONS) counts[d.month]++
-    return counts.map((c) => c / YEARS.length)
-  }, [])
-  const max = Math.max(...perMonth)
+  const seasonal = useData('seasonal.json')
+  const provinces = useData('provinces.json')
+  const [region, setRegion] = useState<Region>('Vietnam')
+  if (seasonal.status === 'error' || provinces.status === 'error') return null
+  if (seasonal.status !== 'ready' || provinces.status !== 'ready') return <section className="min-h-[600px]" />
+  const regions = Object.keys(seasonal.data.regions) as Region[]
+  const rows = seasonal.data.regions[region]
+  const peak = rows.reduce((a, b) => (b.share_of_year_pct > a.share_of_year_pct ? b : a))
+  const top = [...provinces.data.provinces].sort((a, b) => a.rank_total - b.rank_total).slice(0, 3)
+  const n = provinces.data.meta.n_provinces
 
   return (
-    <section id="seasonal" className="scroll-mt-20 border-t border-line">
+    <section className="border-t border-line">
       <div className="mx-auto max-w-[1280px] px-5 py-24 md:px-10 md:py-32">
-        <div className="grid gap-6 lg:grid-cols-[minmax(0,7fr)_minmax(0,5fr)] lg:items-end">
-          <h2 className="text-[clamp(2.25rem,5vw,4.25rem)] font-semibold leading-[0.95] tracking-[-0.035em]">
-            Fire follows the water
-          </h2>
-          <p className="max-w-md text-bone-dim">
-            Tràm Chim burns on a calendar set by the Mekong. Average detections per month, both sensors, demo
-            dataset 2019–2024.
-          </p>
+        <div className="grid gap-8 lg:grid-cols-12 lg:items-end lg:gap-8">
+          <div className="lg:col-span-7">
+            <h2 className="max-w-[20ch] text-[clamp(1.75rem,3vw,2.5rem)] font-semibold leading-[1.02] tracking-[-0.03em]">
+              Where and when Vietnam burns
+            </h2>
+            <p className="mt-5 max-w-[34ch] text-[clamp(1.25rem,2vw,1.5rem)] font-medium leading-snug text-bone">
+              {MONTHS_LONG[peak.cal_month - 1]} alone is {fmtNum(peak.share_of_year_pct, 1)}% of the year {regionPhrase(region)}.
+            </p>
+          </div>
+          <div className="lg:col-span-5">
+            <p className="max-w-[46ch] text-base leading-relaxed text-bone-dim">
+              Since {fmtMonth(provinces.data.meta.first_month)}, {top[0].name}, {top[1].name} and {top[2].name} have recorded the most
+              days with fire of the {n} provinces: {fmtInt(top[0].total)}, {fmtInt(top[1].total)} and {fmtInt(top[2].total)}, counted per
+              10 km square.
+            </p>
+            <Link to="/explore" className="mt-4 inline-block text-sm text-bone underline decoration-line underline-offset-4 hover:decoration-bone">
+              See every province →
+            </Link>
+          </div>
         </div>
 
-        <div className="mt-14 grid grid-cols-2 gap-4 md:grid-cols-4 md:gap-6">
-          {PHASES.map((p) => (
-            <figure key={p.phase} className={`flex flex-col ${p.offset}`}>
-              <ScanFrame tone="border-bone/70" size="sm" className="aspect-[3/4] overflow-hidden bg-ink-2">
-                <img src={p.src} alt={`${p.phase} in a Mekong Delta wetland`} loading="lazy" className="h-full w-full object-cover" />
-              </ScanFrame>
-              <figcaption className="mt-4">
-                <div className="flex items-baseline justify-between gap-2 font-mono text-[11px]">
-                  <span className="text-ember">{MONTHS[p.month]}</span>
-                  <span className="text-bone-dim">{perMonth[p.month].toFixed(1)} / mo</span>
-                </div>
-                <div className="mt-1 text-base font-medium text-bone">{p.phase}</div>
-                <p className="mt-1 text-sm leading-relaxed text-bone-dim">{p.note}</p>
-              </figcaption>
-            </figure>
-          ))}
+        <div className="mt-10 max-w-full overflow-hidden">
+          <Segmented<Region> size="sm" label="Region" value={region} onChange={setRegion} options={regions.map((r) => ({ value: r, label: r }))} wrap />
         </div>
-
-        <div className="mt-16 grid grid-cols-12 items-end gap-1 sm:gap-2" aria-label="Average detections per month">
-          {perMonth.map((v, i) => (
-            <div key={i} className="flex flex-col items-center gap-2">
-              <div className="flex h-28 w-full items-end">
-                <div
-                  className={`w-full ${PHASES.some((p) => p.month === i) ? 'bg-ember' : 'bg-bone/25'}`}
-                  style={{ height: `${Math.max(2, (v / max) * 100)}%` }}
-                  title={`${MONTHS[i]}: ${v.toFixed(1)} detections / month`}
-                />
-              </div>
-              <span className="font-mono text-[10px] text-muted">{MONTHS[i][0]}</span>
-            </div>
-          ))}
-        </div>
+        <MonthColumns rows={rows} region={region} />
+        <SourceChip csv="seasonal_calendar.csv" plain className="mt-3" extra={`${region} · mean of full years, 10th–90th percentile`} />
       </div>
     </section>
+  )
+}
+
+function MonthColumns({ rows, region }: { rows: SeasonalRow[]; region: Region }) {
+  const [ref, W] = useWidth()
+  const narrow = W < 600
+  const H = narrow ? 260 : 340
+  const m = { l: narrow ? 44 : 52, r: 8, t: 34, b: 26 }
+  const top = Math.max(...rows.map((r) => r.p90))
+  const y = scaleLinear().domain([0, top]).range([H - m.b, m.t]).nice(4)
+  const cw = (W - m.l - m.r) / 12
+  const bw = cw * 0.62
+  const maxMean = Math.max(...rows.map((r) => r.mean))
+  return (
+    <div ref={ref} className="mt-6">
+      <svg width={W} height={H} className="block" role="img" aria-label={`Mean monthly days with fire per 10 km square by calendar month, ${region}, with 10th–90th percentile range`}>
+        {y.ticks(4).map((t) => (
+          <g key={t}>
+            <line x1={m.l} x2={W - m.r} y1={y(t)} y2={y(t)} stroke={GRID} strokeWidth={t === 0 ? 1.2 : 0.8} />
+            <text x={m.l - 10} y={y(t) + 4} textAnchor="end" className="fill-muted font-mono text-[10px] tabular-nums">{fmtInt(t)}</text>
+          </g>
+        ))}
+        <text x={0} y={m.t - 20} className="fill-muted font-mono text-[10px]">fire days / month</text>
+        {rows.map((r, i) => {
+          const cx = m.l + cw * i + cw / 2
+          const labelled = r.share_of_year_pct >= SHARE_LABEL_MIN
+          return (
+            <g key={r.cal_month}>
+              <title>{`${MONTHS_LONG[r.cal_month - 1]}: mean ${fmtNum(r.mean, 0)}, 10th–90th percentile ${fmtNum(r.p10, 0)}–${fmtNum(r.p90, 0)} fire days · ${fmtNum(r.share_of_year_pct, 1)}% of the year`}</title>
+              <rect x={cx - bw / 2} y={y(r.mean)} width={bw} height={y(0) - y(r.mean)} fill={fire(0.18 + 0.82 * Math.sqrt(r.mean / maxMean))} />
+              <line x1={cx} x2={cx} y1={y(r.p10)} y2={y(r.p90)} stroke={AQUA} strokeWidth={1.4} />
+              <line x1={cx - 4} x2={cx + 4} y1={y(r.p10)} y2={y(r.p10)} stroke={AQUA} strokeWidth={1.2} />
+              <line x1={cx - 4} x2={cx + 4} y1={y(r.p90)} y2={y(r.p90)} stroke={AQUA} strokeWidth={1.2} />
+              {labelled && (
+                <text x={cx} y={y(r.p90) - 7} textAnchor="middle" className={`font-mono ${narrow ? 'text-[10px]' : 'text-[12px]'} font-medium tabular-nums`} fill={AQUA}>
+                  {fmtNum(r.share_of_year_pct, 0)}%
+                </text>
+              )}
+              <text x={cx} y={H - 8} textAnchor="middle" className="fill-muted font-mono text-[10px]">{narrow ? MONTHS[r.cal_month - 1][0] : MONTHS[r.cal_month - 1]}</text>
+            </g>
+          )
+        })}
+      </svg>
+      <div className="mt-2 flex flex-wrap gap-x-6 gap-y-1 font-mono text-[10px] text-muted">
+        <span>bar = average month</span>
+        <span className="text-bone-dim"><span className="mr-1 inline-block h-2.5 w-px bg-bone align-middle" />range of most years (10th–90th percentile)</span>
+        <span>% = share of the year, shown when ≥ {SHARE_LABEL_MIN}%</span>
+      </div>
+    </div>
   )
 }

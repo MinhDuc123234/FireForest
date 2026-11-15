@@ -1,43 +1,88 @@
 import React from 'react'
 
-export function ThermalFooter({ onDashboard }: { onDashboard?: () => void }) {
-  return (
-    <footer className="relative overflow-hidden border-t border-line">
-      <img
-        src="https://cdn.magicpatterns.com/patterns/generated-images/c5380b4b-7208-4a1e-ad26-ae029d723b8d.jpg"
-        alt=""
-        aria-hidden
-        className="absolute inset-0 h-full w-full object-cover object-bottom opacity-60"
-      />
-      <div className="absolute inset-0 bg-ink/55" aria-hidden />
-      <div className="relative mx-auto max-w-[1280px] px-5 pb-10 pt-32 md:px-10 md:pt-48">
-        <p className="max-w-4xl text-[clamp(2.5rem,7vw,6rem)] font-semibold leading-[0.9] tracking-[-0.04em] text-bone">
-          Read the fire season before it starts.
-        </p>
-        <button
-          type="button"
-          onClick={onDashboard}
-          className="mt-10 whitespace-nowrap bg-bone px-5 py-3 text-sm font-semibold text-ink transition-colors duration-150 hover:bg-ember"
-        >
-          Open the dashboard
-        </button>
+import { Link, useLocation } from 'react-router-dom'
 
-        <div className="mt-24 grid gap-8 border-t border-bone/20 pt-6 text-sm md:grid-cols-[minmax(0,2fr)_minmax(0,1fr)_minmax(0,1fr)]">
-          <p className="max-w-md text-bone-dim">
-            Earth Fire &amp; Surface Intelligence — a NASA Space Apps Challenge project. Detections shown are a
-            demo dataset modeled on NASA FIRMS MODIS and VIIRS products.
-          </p>
-          <ul className="space-y-2">
-            <li><a href="#harmonization" className="text-bone-dim hover:text-bone">Harmonization</a></li>
-            <li><a href="#seasonal" className="text-bone-dim hover:text-bone">Seasonal Trends</a></li>
-            <li><a href="#methodology" className="text-bone-dim hover:text-bone">Methodology</a></li>
-          </ul>
-          <ul className="space-y-2 font-mono text-[11px] text-bone-dim">
-            <li>10.71°N / 105.52°E</li>
-            <li>Đồng Tháp, Vietnam</li>
-            <li>Space Apps 2025</li>
-          </ul>
+import { Logo, PAGES } from './SiteNav'
+import { FireStripes } from '../../shared/components/FireStripes'
+import { DataValue } from '../../shared/components/DataStatus'
+import { fmtInt } from '../../shared/lib/format'
+
+const REPO = 'https://github.com/MinhDuc123234/FireForest'
+const CHALLENGE = 'https://www.spaceappschallenge.org/2026/challenges/harmonization-of-modis-and-viirs-hot-spots/'
+
+/** Team members, in display order. Names to be supplied by the team. */
+const TEAM: string[] = []
+
+export function ThermalFooter() {
+  // the fire stripes close the home page only
+  const home = useLocation().pathname === '/'
+  return (
+    <footer className="border-t border-line">
+      <div className={`mx-auto max-w-[1280px] px-5 pb-10 md:px-10 ${home ? 'pt-20 md:pt-24' : 'pt-10'}`}>
+        {home && (
+          <>
+            <p className="max-w-[30ch] text-[clamp(1.5rem,3vw,2.25rem)] font-medium leading-tight tracking-[-0.02em] text-bone">
+              <DataValue file="national.json" pick={(d) => fmtInt(d.months.length)} /> months of Vietnam's fires, one sensor scale.
+            </p>
+            <FireStripes height={72} className="mt-8" />
+          </>
+        )}
+
+        <div className={`grid gap-10 text-sm md:grid-cols-12 md:gap-8 ${home ? 'mt-16 border-t border-line pt-8' : ''}`}>
+          <div className="md:col-span-5">
+            <Logo />
+            <p className="mt-4 max-w-[44ch] text-bone-dim">
+              NASA Space Apps Challenge 2026 · Harmonization of MODIS and VIIRS Hot Spots. Harmonized active-fire record
+              for Vietnam from NASA FIRMS (MODIS C6.1, VIIRS C2).
+            </p>
+          </div>
+          <div className="md:col-span-2">
+            <h3 className="font-mono text-[11px] text-muted">Pages</h3>
+            <ul className="mt-3 space-y-2">
+              {PAGES.map((s) => (
+                <li key={s.to}>
+                  <Link to={s.to} className="text-bone-dim hover:text-bone">
+                    {s.label}
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </div>
+          <div className="md:col-span-2">
+            <h3 className="font-mono text-[11px] text-muted">Links</h3>
+            <ul className="mt-3 space-y-2">
+              <li>
+                <a href={REPO} className="text-bone-dim hover:text-bone" rel="noreferrer" target="_blank">
+                  GitHub repository
+                </a>
+              </li>
+              <li>
+                <a href={CHALLENGE} className="text-bone-dim hover:text-bone" rel="noreferrer" target="_blank">
+                  Challenge page
+                </a>
+              </li>
+              <li>
+                <a href="https://firms.modaps.eosdis.nasa.gov/" className="text-bone-dim hover:text-bone" rel="noreferrer" target="_blank">
+                  NASA FIRMS
+                </a>
+              </li>
+            </ul>
+          </div>
+          {TEAM.length > 0 && (
+            <div className="md:col-span-3">
+              <h3 className="font-mono text-[11px] text-muted">Team</h3>
+              <ul className="mt-3 space-y-2 text-bone-dim">
+                {TEAM.map((n) => (
+                  <li key={n}>{n}</li>
+                ))}
+              </ul>
+            </div>
+          )}
         </div>
+        <p className="mt-10 border-t border-line pt-4 font-mono text-[10px] leading-relaxed text-muted">
+          Fires: NASA FIRMS · provinces: geoBoundaries · basemap © OpenFreeMap © OpenMapTiles © OpenStreetMap · terrain: Mapzen Terrain
+          Tiles, AWS Open Data
+        </p>
       </div>
     </footer>
   )

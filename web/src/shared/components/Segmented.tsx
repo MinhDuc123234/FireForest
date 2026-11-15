@@ -8,11 +8,13 @@ type Props<T extends string> = {
   onChange: (v: T) => void
   label: string
   size?: 'sm' | 'md'
+  /** allow the options to wrap onto several lines (narrow screens) */
+  wrap?: boolean
 }
 
-export function Segmented<T extends string>({ value, options, onChange, label, size = 'md' }: Props<T>) {
+export function Segmented<T extends string>({ value, options, onChange, label, size = 'md', wrap = false }: Props<T>) {
   return (
-    <div role="radiogroup" aria-label={label} className="inline-flex max-w-full border border-line bg-ink-2 p-0.5">
+    <div role="radiogroup" aria-label={label} className={`inline-flex max-w-full border border-line bg-ink-2 p-0.5 ${wrap ? 'flex-wrap' : ''}`}>
       {options.map((o) => {
         const active = o.value === value
         return (
