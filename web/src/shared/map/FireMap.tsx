@@ -5,6 +5,7 @@ import type { GeoJSONSource, Map as MLMap, MapGeoJSONFeature, PaddingOptions } f
 import type { GridCells, ProvincesGeo } from '../data/load'
 import { MAP_STOPS, fire } from '../lib/colors'
 import { fmtNum } from '../lib/format'
+import type { IntroHandoff } from '../intro/gate'
 import { prepare, type MapGeometry } from './mapData'
 import { DRAW_MIN, FLAT_MAX, LAND, buildStyle, colorExpr, flatHeightExpr, heightExpr } from './mapStyle'
 
@@ -28,6 +29,8 @@ type Props = {
   padding?: Partial<PaddingOptions>
   /** draw Hoàng Sa and Trường Sa in corner insets; the main camera then frames the mainland only */
   insets?: Insets | null
+  /** hero only: hand the map to the home intro once the style is ready (null if the map failed) */
+  onIntro?: (h: IntroHandoff | null) => void
   className?: string
   children?: React.ReactNode
 }
@@ -44,12 +47,13 @@ const TWEEN_MS = 400
  * If the basemap cannot load (offline), our own layers still draw on a plain background; if WebGL
  * is unavailable, a static 2D canvas of the same data is shown instead.
  */
-export function FireMap({ grid, geo, values, vmax, variant, monthLabel, focus, onSelectProvince, padding, insets, className = '', children }: Props) {
+export function FireMap({ grid, geo, values, vmax, variant, monthLabel, focus, onSelectProvince, padding, insets, onIntro, className = '', children }: Props) {
   const host = useRef<HTMLDivElement>(null)
   const mapRef = useRef<MLMap | null>(null)
   const geom = useMemo(() => prepare(grid, geo), [grid, geo])
   const [ready, setReady] = useState(false)
   const [failed, setFailed] = useState(false)
+  const [introActive, setIntroActive] = useState(false)
   const [tip, setTip] = useState<{ x: number; y: number; p: string; v: number } | null>(null)
   const kRef = useRef(0) // column growth factor 0..1
   const vmaxRef = useRef(vmax)
@@ -60,6 +64,9 @@ export function FireMap({ grid, geo, values, vmax, variant, monthLabel, focus, o
   const insetsRef = useRef(insets)
   insetsRef.current = insets
   const selectRef = useRef(onSelectProvince)
+  const introRef = useRef(onIntro)
+  introRef.current = onIntro
+  const wrap = useRef<HTMLDivElement>(null)
   selectRef.current = onSelectProvince
   const shown = useRef<Float32Array | null>(null) // values currently drawn (tween origin)
 
@@ -94,6 +101,7 @@ export function FireMap({ grid, geo, values, vmax, variant, monthLabel, focus, o
           })
         } catch {
           setFailed(true)
+          introRef.current?.(null)
           return
         }
         mapRef.current = map
@@ -177,6 +185,34 @@ export function FireMap({ grid, geo, values, vmax, variant, monthLabel, focus, o
             map.jumpTo(t)
             kRef.current = 1
             map.setPaintProperty('cells-low', 'fill-extrusion-height', flatHeightExpr(1))
+          } else if (hero && introRef.current) {
+            // the home intro drives the camera; squares, heat and labels wait until it hands back
+            const intro = ['cells-3d', 'cells-low', 'heat', 'water', 'hillshade'].filter((id) => map!.getLayer(id))
+            intro.forEach((id) => map!.setLayoutProperty(id, 'visibility', 'none'))
+            markers.forEach((m) => {
+              m.el.style.filter = 'opacity(0)'
+              m.el.style.transition = 'filter 600ms ease-out'
+            })
+            if (wrap.current) wrap.current.style.background = '#080807'
+            setIntroActive(true)
+            let handed = false
+            introRef.current({
+              map,
+              target: t,
+              finish: () => {
+                if (handed || cancelled || !map) return
+                handed = true
+                map.stop()
+                map.setProjection({ type: 'mercator' })
+                map.setMinZoom(2.5)
+                map.jumpTo(t)
+                if (wrap.current) wrap.current.style.background = LAND
+                setIntroActive(false)
+                intro.forEach((id) => map!.setLayoutProperty(id, 'visibility', 'visible'))
+                markers.forEach((m) => (m.el.style.filter = 'opacity(1)'))
+                grow(1100)
+              },
+            })
           } else if (hero) {
             map.jumpTo({ ...t, zoom: t.zoom - 1.1, pitch: 0, bearing: 0 })
             map.easeTo({ ...t, duration: 2500, easing: EASE })
@@ -220,7 +256,10 @@ export function FireMap({ grid, geo, values, vmax, variant, monthLabel, focus, o
           })
         }
       })
-      .catch(() => setFailed(true))
+      .catch(() => {
+        setFailed(true)
+        introRef.current?.(null)
+      })
 
     return () => {
       cancelled = true
@@ -295,7 +334,7 @@ export function FireMap({ grid, geo, values, vmax, variant, monthLabel, focus, o
 
   return (
     // the caller positions this box (e.g. "absolute inset-0"); no `relative` here or it would win over `absolute`
-    <div className={`overflow-hidden ${className}`} style={{ background: LAND }}>
+    <div ref={wrap} className={`overflow-hidden ${className}`} style={{ background: LAND }}>
       {/* maplibre-gl.css makes its container position:relative, so the sized box is this wrapper */}
       {!failed && (
         <div className="absolute inset-0">
@@ -303,7 +342,11 @@ export function FireMap({ grid, geo, values, vmax, variant, monthLabel, focus, o
         </div>
       )}
       {failed && <StaticMap geom={geom} values={values} vmax={vmax} />}
-      {insets && <IslandInsets geom={geom} insets={insets} />}
+      {insets && (
+        <div style={{ opacity: introActive ? 0 : 1, transition: 'opacity 600ms ease-out' }}>
+          <IslandInsets geom={geom} insets={insets} />
+        </div>
+      )}
       {tip && (
         <div
           className="pointer-events-none absolute z-10 whitespace-nowrap border border-line bg-ink/95 px-2.5 py-1.5 font-mono text-[11px] leading-5 tabular-nums"

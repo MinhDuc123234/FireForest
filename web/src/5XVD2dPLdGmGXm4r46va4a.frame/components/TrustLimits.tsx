@@ -419,6 +419,7 @@ function Reproduce({ c }: { c: Checks }) {
 function Sources() {
   const src: [string, string, string][] = [
     ['NASA FIRMS active fires', 'MODIS C6.1 (Aqua), VIIRS C2 (S-NPP, NOAA-20)', 'https://firms.modaps.eosdis.nasa.gov/'],
+    ['NASA FIRMS MODIS C6.1 Global 24h', 'worldwide active fires on the home intro globe only; not part of the harmonized record', 'https://firms.modaps.eosdis.nasa.gov/active_fire/'],
     ['geoBoundaries', 'Vietnam ADM1, gbOpen', 'https://www.geoboundaries.org/'],
     ['Sofiev & Kouznetsov (2026)', 'MODIS detection-limit anchors used by the observation operator', ''],
     ['OpenFreeMap basemap', '© OpenMapTiles, data © OpenStreetMap contributors (ODbL); no API key', 'https://openfreemap.org/'],

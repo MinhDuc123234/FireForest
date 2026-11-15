@@ -212,6 +212,23 @@ export type ProvincesGeo = {
   features: ProvinceFeature[]
 }
 
+/* ---------------------------------------------------------------- global_fires.json (home intro only) */
+export type GlobalFires = {
+  meta: {
+    source: string
+    product: string
+    coverage: string
+    window: string
+    satellites: string[]
+    time_start_utc: string
+    time_end_utc: string
+    n_rows: number
+    n_points: number
+  }
+  /** [lon, lat, frp MW], 2 decimals, sorted by frp */
+  points: [number, number, number][]
+}
+
 /* ---------------------------------------------------------------- fetching */
 export type DataFiles = {
   'national.json': National
@@ -224,6 +241,7 @@ export type DataFiles = {
   'method.json': Method
   'checks.json': Checks
   'provinces.geojson': ProvincesGeo
+  'global_fires.json': GlobalFires
 }
 export type DataFile = keyof DataFiles
 export type GridFile = `grid/${number}.json`

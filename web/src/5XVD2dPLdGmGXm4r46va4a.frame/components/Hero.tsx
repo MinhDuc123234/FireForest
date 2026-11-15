@@ -1,13 +1,17 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react'
+import React, { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 
-import { useData } from '../../shared/data/load'
+import { loadFile, useData } from '../../shared/data/load'
+import { IntroCtl, shouldPlayIntro, type IntroHandoff } from '../../shared/intro/gate'
 import { WARN } from '../../shared/lib/colors'
 import { fmtInt } from '../../shared/lib/format'
 import { FireMap, MapLegend } from '../../shared/map/FireMap'
 import { DRAW_MIN } from '../../shared/map/mapStyle'
 
 type Props = { title: string; subtitle: string }
+
+// flame shader + globe timeline: a separate chunk, fetched only when the intro plays
+const Intro = lazy(() => import('../../shared/intro/Intro'))
 
 /** decimal hours (13.3) -> "13:18" */
 const hhmm = (h: number) => `${Math.floor(h)}:${String(Math.round((h - Math.floor(h)) * 60)).padStart(2, '0')}`
@@ -27,6 +31,17 @@ export function Hero({ title, subtitle }: Props) {
   const [playing, setPlaying] = useState(false)
   const [size, setSize] = useState(() => (typeof window !== 'undefined' ? { w: window.innerWidth, h: window.innerHeight } : { w: 1440, h: 900 }))
   const wide = size.w >= 1024
+  // first visit of the session: intro over the same map instance; the hero data keeps loading meanwhile
+  const [ctl] = useState(() => (shouldPlayIntro() ? new IntroCtl() : null))
+  const [introOn, setIntroOn] = useState(!!ctl)
+  const fires = useMemo(() => (ctl ? loadFile('global_fires.json').catch(() => null) : null), [ctl])
+  const onIntro = useCallback((h: IntroHandoff | null) => ctl?.give(h), [ctl])
+  const endIntro = useCallback(() => setIntroOn(false), [])
+  const skip = () => {
+    ctl?.skip()
+    setIntroOn(false)
+  }
+  const fade: React.CSSProperties = { opacity: introOn ? 0 : 1, transition: 'opacity 700ms ease-out' }
 
   useEffect(() => {
     const on = () => setSize({ w: window.innerWidth, h: window.innerHeight })
@@ -72,12 +87,13 @@ export function Hero({ title, subtitle }: Props) {
   return (
     <section id="top" className="relative h-[calc(100svh-3.5rem)] min-h-[600px] overflow-hidden border-b border-line lg:min-h-[640px]" style={{ ['--hud-h' as string]: `${hudH}px` }}>
       {ready && (
-        <FireMap grid={grid.data} geo={geo.data} values={values} vmax={grid.data.meta.max_monthly} variant="hero" padding={padding} insets={insets} className="ff-hero absolute inset-0" />
+        <FireMap grid={grid.data} geo={geo.data} values={values} vmax={grid.data.meta.max_monthly} variant="hero" padding={padding} insets={insets} onIntro={ctl ? onIntro : undefined} className="ff-hero absolute inset-0" />
       )}
       {/* legibility scrim behind the text only */}
       <div
         className="pointer-events-none absolute inset-0"
         style={{
+          ...fade,
           background: wide
             ? 'radial-gradient(120% 90% at 0% 50%, rgba(8,8,7,0.94) 0%, rgba(8,8,7,0.78) 32%, rgba(8,8,7,0) 58%)'
             : 'linear-gradient(180deg, #080807 0%, rgba(8,8,7,0.88) 36%, rgba(8,8,7,0) 58%)',
@@ -85,7 +101,7 @@ export function Hero({ title, subtitle }: Props) {
         aria-hidden
       />
 
-      <div className="pointer-events-none relative mx-auto flex h-full max-w-[1280px] flex-col px-5 pt-8 md:px-10 lg:justify-center lg:pb-16 lg:pt-0">
+      <div className="pointer-events-none relative mx-auto flex h-full max-w-[1280px] flex-col px-5 pt-8 md:px-10 lg:justify-center lg:pb-16 lg:pt-0" style={fade} aria-hidden={introOn || undefined}>
         <div className="pointer-events-auto max-w-[30rem]">
           <h1 className="text-[clamp(3.25rem,15vw,5.5rem)] font-semibold leading-[0.85] tracking-[-0.05em] text-bone lg:text-[clamp(4rem,7vw,6.5rem)]">{title}</h1>
           <p className="mt-5 max-w-[22ch] text-[clamp(1.25rem,2.2vw,1.75rem)] font-medium leading-tight tracking-[-0.015em] text-bone lg:mt-8">{subtitle}</p>
@@ -110,7 +126,7 @@ export function Hero({ title, subtitle }: Props) {
 
       {/* HUD + year control */}
       {ready && (
-        <div ref={hud} className="absolute inset-x-0 bottom-0 border-t border-line/70 bg-ink/80">
+        <div ref={hud} className="absolute inset-x-0 bottom-0 border-t border-line/70 bg-ink/80" style={fade}>
           <div className="mx-auto flex max-w-[1280px] flex-wrap items-center gap-x-5 gap-y-2 px-5 py-2.5 md:px-10 xl:flex-nowrap">
             <p className="font-mono text-[11px] tabular-nums text-bone xl:shrink-0">
               March {year} · {fmtInt(active)} squares with fire
@@ -155,6 +171,21 @@ export function Hero({ title, subtitle }: Props) {
             <MapLegend vmax={grid.data.meta.max_monthly} className="hidden w-48 shrink-0 xl:block" />
           </div>
         </div>
+      )}
+
+      {introOn && ctl && fires && (
+        <>
+          <Suspense fallback={<div className="absolute inset-0 z-20 bg-[#080807]" />}>
+            <Intro ctl={ctl} fires={fires} onDone={endIntro} />
+          </Suspense>
+          <button
+            type="button"
+            onClick={skip}
+            className="absolute bottom-5 right-5 z-30 border border-line bg-ink/70 px-3 py-1.5 font-mono text-[11px] text-bone-dim transition-colors hover:border-bone-dim hover:text-bone focus-visible:outline focus-visible:outline-2 focus-visible:outline-ember md:right-10"
+          >
+            Skip intro
+          </button>
+        </>
       )}
     </section>
   )
