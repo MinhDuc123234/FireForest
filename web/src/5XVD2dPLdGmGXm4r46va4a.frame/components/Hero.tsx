@@ -42,6 +42,15 @@ export function Hero({ title, subtitle }: Props) {
     setIntroOn(false)
   }
   const fade: React.CSSProperties = { opacity: introOn ? 0 : 1, transition: 'opacity 700ms ease-out' }
+  // while the intro plays the site nav is hidden (only Skip remains); it fades back with the hero
+  useEffect(() => {
+    const root = document.documentElement
+    if (introOn) root.dataset.intro = '1'
+    else delete root.dataset.intro
+    return () => {
+      delete root.dataset.intro
+    }
+  }, [introOn])
 
   useEffect(() => {
     const on = () => setSize({ w: window.innerWidth, h: window.innerHeight })
@@ -175,13 +184,13 @@ export function Hero({ title, subtitle }: Props) {
 
       {introOn && ctl && fires && (
         <>
-          <Suspense fallback={<div className="absolute inset-0 z-20 bg-[#080807]" />}>
+          <Suspense fallback={<div className="absolute inset-0 bg-[#080807]" />}>
             <Intro ctl={ctl} fires={fires} onDone={endIntro} />
           </Suspense>
           <button
             type="button"
             onClick={skip}
-            className="absolute bottom-5 right-5 z-30 border border-line bg-ink/70 px-3 py-1.5 font-mono text-[11px] text-bone-dim transition-colors hover:border-bone-dim hover:text-bone focus-visible:outline focus-visible:outline-2 focus-visible:outline-ember md:right-10"
+            className="fixed right-5 top-3 z-50 border border-line bg-ink/70 px-3 py-1.5 font-mono text-[11px] text-bone-dim transition-colors hover:border-bone-dim hover:text-bone focus-visible:outline focus-visible:outline-2 focus-visible:outline-ember md:right-10"
           >
             Skip intro
           </button>

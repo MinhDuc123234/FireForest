@@ -71,6 +71,10 @@ html {
 .maplibregl-ctrl-attrib a { color: #a9a8a0 !important; text-decoration: none; }
 .maplibregl-ctrl-attrib a:hover { color: #ecebe4 !important; text-decoration: underline; }
 .ff-hero .maplibregl-ctrl-bottom-right { bottom: var(--hud-h, 58px); }
+/* home intro: nav hidden (Skip takes its place), attribution in the bottom-right corner */
+header[data-site-nav] { transition: opacity 600ms ease-out; }
+html[data-intro] header[data-site-nav] { opacity: 0; pointer-events: none; }
+html[data-intro] .ff-hero .maplibregl-ctrl-bottom-right { bottom: 12px; }
 @media (min-width: 1024px) { .ff-explore .maplibregl-ctrl-bottom-right { right: 372px; } }
 /* zoom / compass: square, thin border, ink-2 */
 .maplibregl-ctrl-top-left .maplibregl-ctrl { margin: 12px 0 0 12px; }

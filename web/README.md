@@ -43,6 +43,18 @@ no maritime or disputed boundaries, and no basemap labels in the East Sea; Hoàn
 labelled by the app from `provinces.geojson`. If the tiles cannot be reached, the provinces and fire
 cells still draw on a plain background.
 
+## Home intro
+
+Once per browser session (`sessionStorage`), skipped with `prefers-reduced-motion` or without WebGL; "Skip intro"
+is available from the first frame. A flame drawn by our own shader (three.js, bloom, embers) burns out, its
+embers land on real fire points of `global_fires.json` (NASA FIRMS MODIS C6.1 Global 24h, built with
+`export_data.py --global-fires <csv>`) on the hero map shown as a MapLibre globe, which then flies to the
+hero camera. Code: `src/shared/intro/` (lazy chunk; three.js in its own chunk).
+
+Known console note: while the globe is shown, Chrome may log one
+`performance warning: READ-usage buffer was written, then fenced…`. It comes from MapLibre 5's globe
+renderer (it disappears when the globe projection is turned off), not from this app, and is harmless.
+
 ## Data files (`public/data/`)
 
 | File | Built from | Content |

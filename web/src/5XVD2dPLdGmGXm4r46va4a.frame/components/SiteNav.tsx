@@ -21,7 +21,7 @@ export function Logo() {
 /** `app`: the map application's bar (not sticky, no call-to-action: you are already on the map). */
 export function SiteNav({ app = false }: { app?: boolean }) {
   return (
-    <header className={`z-30 shrink-0 border-b border-line bg-ink/90 backdrop-blur ${app ? '' : 'sticky top-0'}`}>
+    <header data-site-nav className={`z-30 shrink-0 border-b border-line bg-ink/90 backdrop-blur ${app ? '' : 'sticky top-0'}`}>
       <div className={`flex h-14 items-center gap-3 px-4 sm:gap-6 ${app ? 'md:px-5' : 'mx-auto max-w-[1280px] px-5 md:px-10'}`}>
         <Logo />
         <nav aria-label="Pages" className="ml-auto flex items-center gap-0.5 sm:gap-1">
